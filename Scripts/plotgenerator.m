@@ -1,14 +1,15 @@
 %%below lines generated using Python code. Didn't know how to best handle these many data points across six groups.
 %%eval can be used to mimic what is being done in Python.
+global ASD TD;
 %for group = ["ASD", "TD"];
 %for age = ["child", "adolsc", "adult"];
 %eval(sprintf("datastruct = load('exactEzaki_%s_%s_MEM_results_10mm.mat');", lower(group),age));
-%for prop = ["h", "J", "rD", "r", "majorstateIndices", "majorStateDuration", "indirectTransFreq", "probN", "freq", "freqTrans", "basinSizePercent", "basinDurations","mean_basin_dur", "std_basin_dur"]; 
+%for prop = ["h", "J", "rD", "r", "majorstateIndices", "LocalMinIndex",  "majorStateDuration", "indirectTransFreq", "probN", "freq", "freqTrans", "freqDirectTrans", "basinSizePercent", "basinDurations","mean_basin_dur", "std_basin_dur"]; 
 %eval(sprintf('%s.%s.%s = datastruct.%s;', group, age, prop, prop));
 %end
 %end
 %end
-
+%
 %%summarize the basin duration data - custom
 %fprintf('--------------------\n');
 %fprintf('Basin duration stats\n');
@@ -28,6 +29,10 @@
 %end
 
 %% plotting code begins.
+%%basin sizes of states
+%% export the data to R
+%formatModelDataAndExportToFileForR("basinSize")
+
 %%(1) basin size for major states
 %majorStates = 1:2; labels = {};
 %for state = majorStates;
@@ -78,6 +83,10 @@
 %%basin size of minor states (TBD)
 
 %%duration of major states
+%% export the data to R
+%formatModelDataAndExportToFileForR("duration")
+
+
 %%between age groups
 %labels = {'children', 'adolescent', 'adult'};
 %%initialisation of data fields
@@ -133,112 +142,17 @@
 %  basinDurationComparer(childdata, adultdata, 'child', 'adult', group);
 %end
 %%transition frequencies
-%%direct transition between major states
-%between groups
-%labels = {'child', 'adolescent', 'adult'};
-%%initialisation of data fields
-%for group = ["asd", "td"];
-%   eval(sprintf('%s_dirTrans = [];', group));
-%end
-%%fill the group data
-%for age = ["child", "adolsc", "adult"];
-%	for group = ["ASD", "TD"];
-%	transFreq = eval(sprintf('%s.%s.freqTrans', group, age));
-%	majorStIndices = eval(sprintf('%s.%s.majorstateIndices(:)',group, age));
-%	ind1 = majorStIndices(1); ind2 = majorStIndices(2);
-%	majorDirTrans = transFreq(ind1,ind2) + transFreq(ind2, ind1);
-%	eval(sprintf('%s_dirTrans = [%s_dirTrans, majorDirTrans];', lower(group), lower(group)));
-%	end
-%end
-%steps = 100; %because trans freq is plotted in percentage
-%fig = figure; bar(categorical(labels), steps*[asd_dirTrans(:), td_dirTrans(:)], 0.65, 'grouped');
-%legend('ASD', 'TD'); ylabel('Direct trans freq between major states')
-%set(gca,'xticklabel', labels);
-%ytickformat(gca, 'percentage');
-%run chi-square test for direct transition.
-%for ii = 1:3;
-%	n1 = asd_dirTrans(ii); n2 = td_dirTrans(ii); 
-%	%[chisquare, p] = chi2test([n1; 1-n1], [n2; 1-n2]); %unpooled
-%	n1 = n1 * steps; n2 = n2 * steps; 
-%	[chi2, p2] = chi2testSingle(n1, steps, n2, steps); %pooled
-%	%[chisquarePower, p_Power] = chi2test([n1; (10^5)-n1], [n2; (10^5)-n2]) %unpooled
-%	%fprintf('chisquare = %f, p = %f\n', chisquare, p);
-%	%fprintf('chisquare = %f, p = %f | chi2 = %f, p= %f\n', chisquare, p, chi2, p2);
-%	p2
-%	fprintf('chi2 = %f, p= %f\n', chi2, p2);
-%end
-%
-%%%along age
-%labels = {'ASD', 'TD'};
-%fig = figure; bar(steps*[asd_dirTrans; td_dirTrans], 0.65, 'grouped');
-%legend('child', 'adolescent', 'adult');
-%ytickformat(gca, 'percentage');
-%ylabel('Direct transition between major states')
-%set(gca,'xticklabel', labels); 
-%for group = ["ASD", "TD"];
-%	childdata =  eval(sprintf('%s_dirTrans(1)', lower(group)));
-%	adolscdata =  eval(sprintf('%s_dirTrans(2)', lower(group)));
-%	adultdata = eval(sprintf('%s_dirTrans(3)', lower(group)));
-%	%first, compare between child and adolsc
-%	transComparer(childdata, adolscdata, steps, 'child', 'adolsc', group);
-%	%second, compare between adolsc and adult 
-%	transComparer(adolscdata, adultdata, steps, 'adolsc', 'adult', group);
-%	%third, compare between child and adult
-%	transComparer(childdata, adultdata, steps, 'child', 'adult', group);
-%end
-%%indirect transition between multiple minor states
-%between groups
-%labels = {'child', 'adolescent', 'adult'};
-%%initialisation of data fields
-%for group = ["asd", "td"];
-%   eval(sprintf('%s_indirTrans = [];', group));
-%end
-%%%fill the group data
-%for age = ["child", "adolsc", "adult"];
-%	for group = ["ASD", "TD"];
-%	transFreq = eval(sprintf('%s.%s.indirectTransFreq', group, age));
-%	eval(sprintf('%s_indirTrans = [%s_indirTrans, transFreq];', lower(group), lower(group)));
-%	end
-%end
-%steps = 100;
-%fig = figure; bar(categorical(labels), steps*[asd_indirTrans(:), td_indirTrans(:)], 0.65, 'grouped');
-%legend('ASD', 'TD'); ylabel('Indirect trans freq between major states')
-%set(gca,'xticklabel', labels);
-%ytickformat(gca, 'percentage');
-%%run chi-square test for indirect transition.
-%for ii = 1:3;
-%	n1 = asd_indirTrans(ii); n2 = td_indirTrans(ii); 
-%	%[chisquare, p] = chi2test([n1; 1-n1], [n2; 1-n2]); %unpooled
-%	n1 = n1 * steps; n2 = n2 * steps; 
-%	[chi2, p2] = chi2testSingle(n1, steps, n2, steps); %pooled
-%	%[chisquarePower, p_Power] = chi2test([n1; (10^5)-n1], [n2; (10^5)-n2]) %unpooled
-%	%fprintf('chisquare = %f, p = %f\n', chisquare, p);
-%	%fprintf('chisquare = %f, p = %f | chi2 = %f, p= %f\n', chisquare, p, chi2, p2);
-%	p2
-%	fprintf('chi2 = %f, p= %f\n', chi2, p2);
-%end
+%transitionPlotter("directMajor"); %direct trans betwn major states
+%transitionPlotter("directMinor"); %direct trans betwn minor states
+%transitionPlotter("indirectMajor"); %indirect trans betwn major states
+%%export trans_data to R format.
+%formatModelDataAndExportToFileForR("trans")
+%%export appearance frequency to R
+formatModelDataAndExportToFileForR("freq")
 
-%%along age
-%labels = {'ASD', 'TD'};
-%fig = figure; bar(steps*[asd_indirTrans; td_indirTrans], 0.65, 'grouped');
-%legend('child', 'adolescent', 'adult');
-%ytickformat(gca, 'percentage');
-%ylabel('Indirect transition between major states')
-%set(gca,'xticklabel', labels); 
-%for group = ["ASD", "TD"];
-%	childdata =  eval(sprintf('%s_indirTrans(1)', lower(group)));
-%	adolscdata =  eval(sprintf('%s_indirTrans(2)', lower(group)));
-%	adultdata = eval(sprintf('%s_indirTrans(3)', lower(group)));
-%	%first, compare between child and adolsc
-%	transComparer(childdata, adolscdata, steps, 'child', 'adolsc', group);
-%	%second, compare between adolsc and adult 
-%	transComparer(adolscdata, adultdata, steps, 'adolsc', 'adult', group);
-%	%third, compare between child and adult
-%	transComparer(childdata, adultdata, steps, 'child', 'adult', group);
-%end
-
-%%empirical data measures
-%%note: please generate {asd,td}_{child,adolsc,adult}_freqs matrices where each row contain freq of {major st 1, major st2, combined minor sts} using code in binarizeCollateMultipleSiteDataForMEM.m
+%%empirical data measures (remember it can be done more intuitively in R.)
+%%basin frequencies during random walk
+%%please generate {asd,td}_{child,adolsc,adult}_freqs matrices where each row contain freq of {major st 1, major st2, combined minor sts} using code in binarizeCollateMultipleSiteDataForMEM.m
 %generate between groups
 %cnt = 1; %index for data
 %for age = ["child", "adolsc", "adult"];
@@ -262,8 +176,166 @@
 %	boxPlotsForAppearFreq(minorSt, grp, 'Minor st (combined)', age,  100*asd_data, 100*td_data);
 %end
 
+function formatModelDataAndExportToFileForR(taskType)
+global ASD TD;
+	switch taskType
+	case "trans"
+		result = []; data = zeros(1,3);
+		commonTransName = ["direct MajorTrans" "direct MinorTrans" "indirect MajorTrans"];
+		for age = ["child", "adolsc", "adult"];
+		for group = ["ASD", "TD"];
+		 common_array = repmat([group, age], 3, 1);
+		 majorStIndices = eval(sprintf('%s.%s.majorstateIndices(:)',group, age));
+		 transFreq = eval(sprintf('%s.%s.freqDirectTrans', group, age));
+		 ind1 = majorStIndices(1); ind2 = majorStIndices(2);
+		 data(1) = transFreq(ind1,ind2) + transFreq(ind2, ind1); %directMajor trans
+		 N = size(transFreq, 1); %N is num of basins.
+		 data(2) = getMinorStateTransition(transFreq, N, majorStIndices); %directMinor trans
+		 data(3) = eval(sprintf('%s.%s.indirectTransFreq', group, age)); %indirect MajorTrans
+		 toAppend = [common_array, commonTransName(:), data(:)]; %consult the format in under "trans" in convertAndWriteforRplot.m
+		 result = [result; toAppend];
+		end
+		end
+		writeToCsv(result, "transR", false);
+	case "duration"
+		result = [];
+		for age = ["child", "adolsc", "adult"];
+		for group = ["ASD", "TD"];
+		stateDuration = eval(sprintf('%s.%s.majorStateDuration', group, age));
+		a_mean = mean(stateDuration);
+		a_std  = std(stateDuration);
+		toAppend = [group age a_mean a_std];
+		result = [result; toAppend];
+		end
+		end
+		writeToCsv(result, "durationR", false);
+	case "basinSize"
+		result = []; data = zeros(1,3);
+		commonBasinName = ["Major st 1" "Major st 2" "Minor st (grouped)"];
+		for age = ["child", "adolsc", "adult"];
+		for group = ["ASD", "TD"];
+		common_array = repmat([group, age], 3, 1);
+		majorStIndices = eval(sprintf('%s.%s.majorstateIndices(:)',group, age));
+		majorStSize =  eval(sprintf('%s.%s.basinSizePercent(majorStIndices)', group, age));
+		minorStSize = 100 - sum(majorStSize);
+		szdata = [majorStSize' minorStSize];
+		toAppend = [common_array, commonBasinName(:), szdata(:)];
+		result = [result; toAppend];
+		end
+		end
+		writeToCsv(result, "basinSizeR", false);
+	case "freq"
+		result = []; data = zeros(1,3);
+		commonBasinName = ["Major st 1" "Major st 2" "Minor st (grouped)"];
+		for age = ["child", "adolsc", "adult"];
+		for group = ["ASD", "TD"];
+		common_array = repmat([group, age], 3, 1);
+		majorStIndices = eval(sprintf('%s.%s.majorstateIndices(:)',group, age));
+		majorStFreq = eval(sprintf('%s.%s.freq(majorStIndices)', group, age));
+		minorStFreq = 1 - sum(majorStFreq);
+		freqdata = [majorStFreq minorStFreq];
+		toAppend = [common_array, commonBasinName(:), freqdata(:)];
+		result = [result; toAppend];
+		end
+		end
+		writeToCsv(result, "freqR", false);
+	otherwise
+	   error(sprintf('taskType %s not recognised', taskType))
+	end
+end
 
-%%TBD: rewrite this function to preserve beauty
+% a general function to plot direct and indirect trans freq for major states, and direct trans freq for minor states. 
+%taskType encodes the information - a) directMajor, b) indirectMajor c) directMinor
+function result = transitionPlotter(taskType)
+global ASD TD;
+%%between groups
+	%initialisation of data fields
+	for group = ["asd", "td"];
+	   eval(sprintf('%s_trans = [];', group));
+	end
+	%fill the group data
+	for age = ["child", "adolsc", "adult"];
+		for group = ["ASD", "TD"];
+			majorStIndices = eval(sprintf('%s.%s.majorstateIndices(:)',group, age));
+			transFreq = eval(sprintf('%s.%s.freqDirectTrans', group, age));
+			ind1 = majorStIndices(1); ind2 = majorStIndices(2);
+			switch taskType
+			case "directMajor"
+			   result = transFreq(ind1,ind2) + transFreq(ind2, ind1);
+			case "directMinor"
+			   N = size(transFreq, 1); %N is num of basins.
+			   result = getMinorStateTransition(transFreq, N, majorStIndices);
+			case "indirectMajor"
+			  result = eval(sprintf('%s.%s.indirectTransFreq', group, age));
+			otherwise
+			  error(sprintf("cannot recognise %s task", taskType))
+			end
+		eval(sprintf('%s_trans = [%s_trans, result];', lower(group), lower(group)));
+		end
+	end
+	labels = {'child', 'adolescent', 'adult'};
+	steps = 100; %because trans freq is plotted in percentage
+	fig = figure; bar(steps*[asd_trans(:), td_trans(:)], 0.65, 'grouped');
+	legend('ASD', 'TD'); 
+	set(gca,'xticklabel', labels);
+	ytickformat(gca, 'percentage');
+	switch taskType
+	case "directMajor"
+	  ylabel('Direct trans freq between major states')
+	case "indirectMajor"
+	  ylabel('Indirect trans freq between major states')
+	case "directMinor"
+	  ylabel('Direct trans freq between minor states')
+	end
+%% save the figure
+	customSaveFigure(fig, ['trans_acrossAgeBetwnGroup_'] , taskType);
+%% run chi-square tests between diagnostic groups along age
+	%run chi-square test for direct transition.
+	fprintf('Chi-square test for task %s\n', taskType);
+	for ii = 1:3;
+		n1 = asd_trans(ii); n2 = td_trans(ii); 
+		%[chisquare, p] = chi2test([n1; 1-n1], [n2; 1-n2]); %unpooled
+		n1 = n1 * steps; n2 = n2 * steps; 
+		[chi2, p2] = chi2testSingle(n1, steps, n2, steps); %pooled
+		%[chisquarePower, p_Power] = chi2test([n1; (10^5)-n1], [n2; (10^5)-n2]) %unpooled
+		%fprintf('chisquare = %f, p = %f\n', chisquare, p);
+		%fprintf('chisquare = %f, p = %f | chi2 = %f, p= %f\n', chisquare, p, chi2, p2);
+		%p2
+		fprintf('ASD vs TD %s. chi2 = %f, p= %f\n', labels{ii}, chi2, p2);
+	end
+%%along age
+	labels = {'ASD', 'TD'};
+	fig = figure; bar(steps*[asd_trans; td_trans], 0.65, 'grouped');
+	legend('child', 'adolescent', 'adult');
+	set(gca,'xticklabel', labels); 
+	ytickformat(gca, 'percentage');
+	switch taskType
+	case "directMajor"
+	  ylabel('Direct trans freq between major states')
+	case "indirectMajor"
+	  ylabel('Indirect trans freq between major states')
+	case "directMinor"
+	  ylabel('Direct trans freq between minor states')
+	end
+%%save the figure
+	customSaveFigure(fig, ['trans_acrossAgeWithinGroup_'] , taskType);
+%%run chi-test for age divisions within a diagnostic group
+	for group = ["ASD", "TD"];
+		childdata =  eval(sprintf('%s_trans(1)', lower(group)));
+		adolscdata =  eval(sprintf('%s_trans(2)', lower(group)));
+		adultdata = eval(sprintf('%s_trans(3)', lower(group)));
+		%first, compare between child and adolsc
+		transComparer(childdata, adolscdata, steps, 'child', 'adolsc', group);
+		%second, compare between adolsc and adult 
+		transComparer(adolscdata, adultdata, steps, 'adolsc', 'adult', group);
+		%third, compare between child and adult
+		transComparer(childdata, adultdata, steps, 'child', 'adult', group);
+	end
+	fprintf('--------------------\n');
+	result = [asd_trans; td_trans];
+end
+
+%%TBD: rewrite this function to preserve beauty. (or figure out a way to do in R.)
 function boxPlotsForAppearFreq(data, grp, label, age, data1, data2)
 fig = figure; boxplot(data, grp);
 %set(gca, 'xticklabels', {'ASD, TD'});
