@@ -5,16 +5,17 @@ library(ggsignif)
 source('~/Documents/Dissertation Docs & Papers/Scripts/project_functions.r')
 
 #### Below Section for plotting and analysis of EMPIRICAL data. Scroll down for model data. #####
-#asd_td_freq <- read.table('~/Documents/asd_td_freqs_forR_empirical.csv', header=T, sep=",")
-#asd_td_trans <- read.table('~/Documents/asd_td_trans_forR_empirical.csv', header=T, sep=",")
-#asd_td_freq <- asd_td_freq %>% mutate(freq = freq *100) # turn into percentage
-#asd_td_trans <- asd_td_trans %>% mutate(transFreq = transFreq *100) # turn into percentage
-#asd_td_freq$age <- factor(asd_td_freq$age, levels = c("child", "adolsc", "adult"))
-#asd_td_trans$age <- factor(asd_td_trans$age, levels = c("child", "adolsc", "adult"))
-#
-#
-#asd_td_duration <- read.table('~/Documents/asd_td_duration_forR_empirical.csv', header=T, sep=",")
-#asd_td_duration$age <- factor(asd_td_duration$age, levels = c("child", "adolsc", "adult"))
+asd_td_freq <- read.table('~/Documents/asd_td_freqs_forR_empirical.csv', header=T, sep=",")
+asd_td_trans <- read.table('~/Documents/asd_td_trans_forR_empirical.csv', header=T, sep=",")
+asd_td_freq <- asd_td_freq %>% mutate(freq = freq *100) # turn into percentage
+asd_td_trans <- asd_td_trans %>% mutate(transFreq = transFreq *100) # turn into percentage
+asd_td_freq$age <- factor(asd_td_freq$age, levels = c("child", "adolsc", "adult"))
+asd_td_trans$age <- factor(asd_td_trans$age, levels = c("child", "adolsc", "adult"))
+
+asd_td_duration <- read.table('~/Documents/asd_td_duration_forR_empirical.csv', header=T, sep=",")
+asd_td_duration$age <- factor(asd_td_duration$age, levels = c("child", "adolsc", "adult"))
+# load ages of individual subjects.
+asd_td_ages <- read.table('~/Documents/asd_td_ages_forR_empirical.csv', header=T, sep=",")
 
 ## basin frequency for empirical data
 #freq_AcrossAgeWithinGroup <- boxPlotterAcrossAgeWithinGroup(asd_td_freq, aes(x=state, y=freq), "basins", "appearance frequencies in empirical data", TRUE)
@@ -98,6 +99,7 @@ source('~/Documents/Dissertation Docs & Papers/Scripts/project_functions.r')
 #	print(sprintf("(%s vs %s) t = %f, p = %f", whoVsWho[1], whoVsWho[2], stats$statistic, stats$p.value))
 #	}
 #}
+
 #ggsave(freq_AcrossAgeBetwnGroups, width=12, file = "empirical_freq_AcrossAgeBetwnGroups.pdf")
 #ggsave(freq_AcrossAgeWithinGroup, width=12, file = "empirical_freq_AcrossAgeWithinGroup.pdf")
 #ggsave(trans_AcrossAgeBetwnGroup, width=12, file = "empirical_trans_AcrossAgeBetwnGroups.pdf")
@@ -105,57 +107,101 @@ source('~/Documents/Dissertation Docs & Papers/Scripts/project_functions.r')
 #ggsave(duration_AcrossAgeBetwnGroups, width=7, file = "empirical_duration_AcrossAgeBetwnGroups.pdf")
 #ggsave(duration_AcrossAgeWithinGroup, width=7, file = "empirical_duration_AcrossAgeWithinGroup.pdf")
 
+## SCATTER PLOTS for different metrics against age (years) and behavioral scores
+#bind frequency measures with age data
+majorSt1 <- asd_td_freq %>% filter(state == "majorSt1");
+majorSt2 <- asd_td_freq %>% filter(state == "majorSt2");
+minorSt_Combn <- asd_td_freq %>% filter(state == "minorSt_Combn");
+ageAndFreq <- cbind(asd_td_ages, majorSt1_freq = majorSt1$freq, majorSt2_freq = majorSt2$freq, minorSt_Combn_freq = minorSt_Combn$freq)
+# scatter plot for age in years vs appearance frequencies
+#mapping <- aes(x=ageInYears, y=majorSt1_freq, color=group) 
+#ageVsMajorSt1 <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Major state 1 appearance frequency', TRUE)
+#mapping <- aes(x=ageInYears, y=majorSt2_freq, color=group)
+#ageVsMajorSt2 <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Major state 2 appearance frequency', TRUE)
+#mapping <- aes(x=ageInYears, y=minorSt_Combn_freq, color=group)
+#ageVsMinorCombn <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Minor states (combined) appearance frequency', TRUE)
+## calculate the correlation r and p values.
+for (state in c("majorSt1", "majorSt2", "minorSt_Combn")) {
+      asd_data <- ageAndFreq %>% filter(group=='asd')
+      td_data <- ageAndFreq %>% filter(group=='td')
+      resASD <- cor.test(asd_data$ageInYears,eval(parse(text=sprintf('asd_data$%s_freq', state))))
+      resTD <- cor.test(td_data$ageInYears, eval(parse(text=sprintf('td_data$%s_freq', state))))
+      print(sprintf('(ASD) %s. r = %f, p = %f', state, resASD$estimate, resASD$p.value))
+      print(sprintf('(TD) %s. r = %f, p = %f', state, resTD$estimate, resTD$p.value))
+}
+
+# save the scatter plots
+#ggsave(ageVsMajorSt1, file = "empirical_corr_age_majorSt1.pdf")
+#ggsave(ageVsMajorSt2, file = "empirical_corr_age_majorSt2.pdf")
+#ggsave(ageVsMinorCombn, file = "empirical_corr_age_minorStCombn.pdf")
+
 #### Below Section for plotting and analysis of MODEL data. #####
-asd_td_bsnSzModel <- read.table('~/Documents/asd_td_basinSize_forR_model.csv', header=T, sep=",")
-asd_td_durationModel <- read.table('~/Documents/asd_td_duration_forR_model.csv', header=T, sep=",")
-asd_td_transModel <- read.table('~/Documents/asd_td_trans_forR_model.csv', header=T, sep=",")
-asd_td_freqsModel <- read.table('~/Documents/asd_td_freqs_forR_model.csv', header=T, sep=",")
-### mutate relevant data fields
-asd_td_freqsModel <- asd_td_freqsModel %>% mutate(freq = freq *100) # turn into percentage
-asd_td_transModel <- asd_td_transModel %>% mutate(transFreq = transFreq *100) # turn into percentage
-### set the age factor to chronological order.
-asd_td_bsnSzModel$age <- factor(asd_td_bsnSzModel$age, levels = c("child", "adolsc", "adult"))
-asd_td_durationModel$age <- factor(asd_td_durationModel$age, levels = c("child", "adolsc", "adult"))
-asd_td_transModel$age <- factor(asd_td_transModel$age, levels = c("child", "adolsc", "adult"))
-asd_td_freqsModel$age <- factor(asd_td_freqsModel$age, levels = c("child", "adolsc", "adult"))
+#asd_td_bsnSzModel <- read.table('~/Documents/asd_td_basinSize_forR_model.csv', header=T, sep=",")
+#asd_td_durationModel <- read.table('~/Documents/asd_td_duration_forR_model.csv', header=T, sep=",")
+#asd_td_transModel <- read.table('~/Documents/asd_td_trans_forR_model.csv', header=T, sep=",")
+#asd_td_freqsModel <- read.table('~/Documents/asd_td_freqs_forR_model.csv', header=T, sep=",")
+#### mutate relevant data fields
+#asd_td_freqsModel <- asd_td_freqsModel %>% mutate(freq = freq *100) # turn into percentage
+#asd_td_transModel <- asd_td_transModel %>% mutate(transFreq = transFreq *100) # turn into percentage
+#### set the age factor to chronological order.
+#asd_td_bsnSzModel$age <- factor(asd_td_bsnSzModel$age, levels = c("child", "adolsc", "adult"))
+#asd_td_durationModel$age <- factor(asd_td_durationModel$age, levels = c("child", "adolsc", "adult"))
+#asd_td_transModel$age <- factor(asd_td_transModel$age, levels = c("child", "adolsc", "adult"))
+#asd_td_freqsModel$age <- factor(asd_td_freqsModel$age, levels = c("child", "adolsc", "adult"))
 
 ### plot basin size for model.
 #basinSz_AcrossAgeWithinGroup <- barPlotterAcrossAgeWithinGroup(asd_td_bsnSzModel, aes(x=basin, y=basinSize), "basins", "basin sizes in model", TRUE)
 #basinSz_AcrossAgeBetwnGroup <- barPlotterAcrossAgeBetwnGroup(asd_td_bsnSzModel, aes(x=basin, y=basinSize), "basins", "basin sizes in model", TRUE)
 ### stats for model basin size
-# across age - between ASD and TD
+## across age - between ASD and TD
 #for (age in c("child", "adolsc", "adult")) {
+#   asd_group <- c(); td_group <- c();
 #   for (basin in c("Major st 1", "Major st 2", "Minor st (grouped)")) {
 #      asd_data = eval(parse(text=sprintf("asd_td_bsnSzModel %%>%% filter(age=='%s',basin=='%s',group=='ASD')", age, basin)))
 #      td_data = eval(parse(text=sprintf("asd_td_bsnSzModel %%>%% filter(age=='%s',basin=='%s',group=='TD')", age, basin)))
+#      asd_group <- c(asd_group, asd_data$basinSize)
+#      td_group <- c(td_group, td_data$basinSize)
 #      N = 128/100; # total number of basins / 100 to normalise	
-#      stats = prop.test(x=c(round(asd_data$basinSize*N), round(td_data$basinSize*N)),c(128,128) , correct=FALSE)
-#      print(sprintf("(ASD vs TD) %s - %s. chi2 = %f, p = %f", age, basin, stats$statistic, stats$p.value))
+#      #stats = prop.test(x=c(round(asd_data$basinSize*N), round(td_data$basinSize*N)),c(128,128) , correct=FALSE)
+#      #print(sprintf("(ASD vs TD) %s - %s. chi2 = %f, p = %f", age, basin, stats$statistic, stats$p.value))
 #   }
+#   stats = chisq.test(asd_group, p = td_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(ASD vs TD) basin size distrib %s. chi2 = %f, p = %f", age, stats$statistic, stats$p.value))
 #}
-
-## stats for model basin size - within groups (asd and td) a) child vs adolsc, b) adolsc vs adult, c) child vs adult
+##
+#### stats for model basin size - within groups (asd and td) a) child vs adolsc, b) adolsc vs adult, c) child vs adult
 #for (group in c("ASD", "TD")) {
 #   print(sprintf("model basin size stats for group %s", group))
-#   for (basin in c("Major st 1", "Major st 2", "Minor st (grouped)")) {
-#	
+#   child_group <- c(); adolsc_group <- c(); adult_group <- c();
+#   for (basin in c("Major st 1", "Major st 2", "Minor st (grouped)")) {	
 #     child_data = eval(parse(text=sprintf("asd_td_bsnSzModel %%>%% filter(age=='child',basin=='%s',group=='%s')", basin, group)))
 #     adolsc_data = eval(parse(text=sprintf("asd_td_bsnSzModel %%>%% filter(age=='adolsc',basin=='%s',group=='%s')", basin, group)))
 #     adult_data = eval(parse(text=sprintf("asd_td_bsnSzModel %%>%% filter(age=='adult',basin=='%s',group=='%s')", basin, group)))
 #     #print(sprintf('child = %f, adolsc = %f, adult = %f', child_data$basinSize, adolsc_data$basinSize, adult_data$basinSize))
-#      N = 128/100; # total number of basins / 100 to normalise	
-#     # child vs adolsc
+#     child_group <- c(child_group, child_data$basinSize)
+#     adolsc_group <- c(adolsc_group, adolsc_data$basinSize)
+#     adult_group <- c(adult_group, adult_data$basinSize)
+#     N = 128/100; # total number of basins / 100 to get the actual number of basins	
+     # child vs adolsc
 #      stats = prop.test(x=c(round(child_data$basinSize*N), round(adolsc_data$basinSize*N)), c(128,128), correct=FALSE)
-#     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child","adolsc", basin, stats$statistic, stats$p.value))
-#
+#    # print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child","adolsc", basin, stats$statistic, stats$p.value))
 #     # adolsc vs adult
 #      stats = prop.test(x=c(round(adolsc_data$basinSize*N), round(adult_data$basinSize*N)), c(128,128), correct=FALSE)
-#     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "adolsc", "adult", basin, stats$statistic, stats$p.value))
-#     
+#     #print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "adolsc", "adult", basin, stats$statistic, stats$p.value))     
 #     # child vs adult
 #     stats = prop.test(x=c(round(child_data$basinSize*N), round(adult_data$basinSize*N)), c(128,128), correct=FALSE)
-#     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child", "adult", basin, stats$statistic, stats$p.value))
+     #print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child", "adult", basin, stats$statistic, stats$p.value))
 #}
+### within group test
+   # child vs adolsc
+#   stats = chisq.test(adolsc_group, p=child_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(%s - child vs adolsc) basin size distrib. chi2 = %f, p = %f", group, stats$statistic, stats$p.value))
+# # adolsc vs adult
+#   stats = chisq.test(adult_group, p = adolsc_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(%s - adolsc vs adult) basin size distrib. chi2 = %f, p = %f", group, stats$statistic, stats$p.value))
+#  # child vs adult
+#   stats = chisq.test(adult_group, p=child_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(%s - child vs adult) basin size distrib. chi2 = %f, p = %f", group, stats$statistic, stats$p.value))
 #}
 
 #
@@ -164,91 +210,135 @@ asd_td_freqsModel$age <- factor(asd_td_freqsModel$age, levels = c("child", "adol
 ##trans_AcrossAgeWithinGroup <- barPlotterAcrossAgeWithinGroup(asd_td_transModel, aes(x=transType, y=transFreq), "transitions", "transition frequencies in model", TRUE)
 ## stats for trans in model
 #for (age in c("child", "adolsc", "adult")) {
+#   asd_group <- c(); td_group <- c();
 #   for (transType in c("direct MajorTrans", "direct MinorTrans", "indirect MajorTrans")) {
 #      asd_data = eval(parse(text=sprintf("asd_td_transModel %%>%% filter(age=='%s',transType=='%s',group=='ASD')", age, transType)))
 #      td_data = eval(parse(text=sprintf("asd_td_transModel %%>%% filter(age=='%s',transType=='%s',group=='TD')", age, transType)))
-##print(sprintf('asd= %f, td=%f', asd_data$transFreq, td_data$transFreq))
+#      asd_group = c(asd_group, asd_data$transFreq);
+#      td_group = c(td_group, td_data$transFreq);
+#      print(sprintf('asd= %f, td=%f', asd_data$transFreq, td_data$transFreq))
 #      stats = prop.test(x=c(asd_data$transFreq*100, td_data$transFreq*100), n=c(10^5,10^5), correct=FALSE)
 #      print(sprintf("(ASD vs TD) %s - %s. chi2 = %f, p = %f", age, transType, stats$statistic, stats$p.value))
 #   }
+#   stats = chisq.test(asd_group, p = td_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(ASD vs TD) transition freq distrib %s. chi2 = %f, p = %f", age, stats$statistic, stats$p.value))
 #}
 
 ## stats for model trans freq - within groups (asd and td) a) child vs adolsc, b) adolsc vs adult, c) child vs adult
 #for (group in c("ASD", "TD")) {
 #   print(sprintf("transition stats for group %s", group))
+#   child_group <- c(); adolsc_group <- c(); adult_group <- c();
 #   for (transType in c("direct MajorTrans", "direct MinorTrans", "indirect MajorTrans")) {
 #	
 #     child_data = eval(parse(text=sprintf("asd_td_transModel %%>%% filter(age=='child',transType=='%s',group=='%s')", transType, group)))
 #     adolsc_data = eval(parse(text=sprintf("asd_td_transModel %%>%% filter(age=='adolsc',transType=='%s',group=='%s')", transType, group)))
 #     adult_data = eval(parse(text=sprintf("asd_td_transModel %%>%% filter(age=='adult',transType=='%s',group=='%s')", transType, group)))
-#     #print(sprintf('child = %f, adolsc = %f, adult = %f', child_data$basinSize, adolsc_data$basinSize, adult_data$basinSize))
-#     # child vs adolsc
-#      stats = prop.test(x=c(child_data$transFreq*100, adolsc_data$transFreq*100), n=c(10^5,10^5), correct=FALSE)
-#     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child","adolsc", transType, stats$statistic, stats$p.value))
-#
-#     # adolsc vs adult
-#      stats = prop.test(x=c(adolsc_data$transFreq*100, adult_data$transFreq*100), n=c(10^5,10^5), correct=FALSE)
-#     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "adolsc", "adult", transType, stats$statistic, stats$p.value))
-#     
-#     # child vs adult
-#      stats = prop.test(x=c(child_data$transFreq*100, adult_data$transFreq*100), n=c(10^5,10^5), correct=FALSE)
-#     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child", "adult", transType, stats$statistic, stats$p.value))
+#     child_group <- c(child_group, child_data$transFreq)
+#     adolsc_group <- c(adolsc_group, adolsc_data$transFreq)
+#     adult_group <- c(adult_group, adult_data$transFreq)
+
+     #print(sprintf('child = %f, adolsc = %f, adult = %f', child_data$basinSize, adolsc_data$basinSize, adult_data$basinSize))
+     # child vs adolsc
+     #stats = prop.test(x=c(child_data$transFreq*100, adolsc_data$transFreq*100), n=c(10^5,10^5), correct=FALSE)
+     #print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child","adolsc", transType, stats$statistic, stats$p.value))
+
+     ## adolsc vs adult
+     #stats = prop.test(x=c(adolsc_data$transFreq*100, adult_data$transFreq*100), n=c(10^5,10^5), correct=FALSE)
+     #print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "adolsc", "adult", transType, stats$statistic, stats$p.value))
+     #
+     ## child vs adult
+     #stats = prop.test(x=c(child_data$transFreq*100, adult_data$transFreq*100), n=c(10^5,10^5), correct=FALSE)
+     #print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child", "adult", transType, stats$statistic, stats$p.value))
 #}
+## distribution difference between age within a group.
+   ## add remaining percentage of transitions to ensure the sum goes to 100.
+#   child_group <- c(child_group, 100-sum(child_group))
+#   adolsc_group <- c(adolsc_group, 100-sum(adolsc_group))
+#   adult_group <- c(adult_group, 100-sum(adult_group))
+#   # child vs adolsc
+#   stats = chisq.test(adolsc_group, p=child_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(%s - child vs adolsc) appear freq distrib. chi2 = %f, p = %f", group, stats$statistic, stats$p.value))
+# # adolsc vs adult
+#   stats = chisq.test(adult_group, p = adolsc_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(%s - adolsc vs adult) appear freq distrib. chi2 = %f, p = %f", group, stats$statistic, stats$p.value))
+#  # child vs adult
+#   stats = chisq.test(adult_group, p=child_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(%s - child vs adult) appear freq distrib. chi2 = %f, p = %f", group, stats$statistic, stats$p.value))
 #}
 
 
 ### plot appearance freq for model
-#freq_AcrossAgeBetwnGroup <- barPlotterAcrossAgeBetwnGroup(asd_td_freqsModel, aes(x=state, y=freq), "frequencies", "appearance frequencies in model", TRUE)
-#freq_AcrossAgeWithinGroup <- barPlotterAcrossAgeWithinGroup(asd_td_freqsModel, aes(x=state, y=freq), "frequencies", "appearance frequencies in model", TRUE)
+#freq_AcrossAgeBetwnGroup <- barPlotterAcrossAgeBetwnGroup(asd_td_freqsModel, aes(x=state, y=freq), "state", "appearance frequencies in model", TRUE)
+#freq_AcrossAgeWithinGroup <- barPlotterAcrossAgeWithinGroup(asd_td_freqsModel, aes(x=state, y=freq), "state", "appearance frequencies in model", TRUE)
 ## stat for model appearance frequencies
 #for (age in c("child", "adolsc", "adult")) {
+#   asd_prop <- c(); td_prop <- c();
 #   for (state in c("Major st 1", "Major st 2", "Minor st (grouped)")) {
 #      asd_data = eval(parse(text=sprintf("asd_td_freqsModel %%>%% filter(age=='%s',state=='%s',group=='ASD')", age, state)))
 #      td_data = eval(parse(text=sprintf("asd_td_freqsModel %%>%% filter(age=='%s',state=='%s',group=='TD')", age, state)))
 ##print(sprintf('asd= %f, td=%f', asd_data$transFreq, td_data$transFreq))
 #      stats = prop.test(x=c(asd_data$freq*100, td_data$freq*100), n=c(10^5,10^5), correct=FALSE)
-#      print(sprintf("(ASD vs TD) %s - %s. chi2 = %f, p = %f", age, state, stats$statistic, stats$p.value))
+#      #print(sprintf("(ASD vs TD) %s - %s. chi2 = %f, p = %f", age, state, stats$statistic, stats$p.value))
+#      asd_prop <- c(asd_prop, asd_data$freq)
+#      td_prop <- c(td_prop, td_data$freq)
 #   }
+#   stats = chisq.test(asd_prop, p = td_prop, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(ASD vs TD) appear freq distrib %s. chi2 = %f, p = %f", age, stats$statistic, stats$p.value))
 #}
 
-## stats for model trans freq - within groups (asd and td) a) child vs adolsc, b) adolsc vs adult, c) child vs adult
-for (group in c("ASD", "TD")) {
-   print(sprintf("appearance freq stats for group %s", group))
-   for (state in c("Major st 1", "Major st 2", "Minor st (grouped)")) {
-	
-     child_data = eval(parse(text=sprintf("asd_td_freqsModel %%>%% filter(age=='child',state=='%s',group=='%s')", state, group)))
-     adolsc_data = eval(parse(text=sprintf("asd_td_freqsModel %%>%% filter(age=='adolsc',state=='%s',group=='%s')", state, group)))
-     adult_data = eval(parse(text=sprintf("asd_td_freqsModel %%>%% filter(age=='adult',state=='%s',group=='%s')", state, group)))
-     #print(sprintf('child = %f, adolsc = %f, adult = %f', child_data$basinSize, adolsc_data$basinSize, adult_data$basinSize))
-     # child vs adolsc
-      stats = prop.test(x=c(child_data$freq*100, adolsc_data$freq*100), n=c(10^5,10^5), correct=FALSE)
-     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child","adolsc", state, stats$statistic, stats$p.value))
-
-     # adolsc vs adult
-      stats = prop.test(x=c(adolsc_data$freq*100, adult_data$freq*100), n=c(10^5,10^5), correct=FALSE)
-     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "adolsc", "adult", state, stats$statistic, stats$p.value))
-     
-     # child vs adult
-      stats = prop.test(x=c(child_data$freq*100, adult_data$freq*100), n=c(10^5,10^5), correct=FALSE)
-     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child", "adult", state, stats$statistic, stats$p.value))
-}
-}
-
+### stats for model appearance freq - within groups (asd and td) a) child vs adolsc, b) adolsc vs adult, c) child vs adult
+#for (group in c("ASD", "TD")) {
+#   print(sprintf("appearance freq stats for group %s", group))
+#   child_group <- c(); adolsc_group <- c(); adult_group <- c();
+#
+#   for (state in c("Major st 1", "Major st 2", "Minor st (grouped)")) {
+#	
+#     child_data = eval(parse(text=sprintf("asd_td_freqsModel %%>%% filter(age=='child',state=='%s',group=='%s')", state, group)))
+#     adolsc_data = eval(parse(text=sprintf("asd_td_freqsModel %%>%% filter(age=='adolsc',state=='%s',group=='%s')", state, group)))
+#     adult_data = eval(parse(text=sprintf("asd_td_freqsModel %%>%% filter(age=='adult',state=='%s',group=='%s')", state, group)))
+#     #print(sprintf('child = %f, adolsc = %f, adult = %f', child_data$basinSize, adolsc_data$basinSize, adult_data$basinSize))
+#     child_group <- c(child_group, child_data$freq)
+#     adolsc_group <- c(adolsc_group, adolsc_data$freq)
+#     adult_group <- c(adult_group, adult_data$freq)
+#     # child vs adolsc
+#      stats = prop.test(x=c(child_data$freq*100, adolsc_data$freq*100), n=c(10^5,10^5), correct=FALSE)
+#     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child","adolsc", state, stats$statistic, stats$p.value))
+#
+#     # adolsc vs adult
+#      stats = prop.test(x=c(adolsc_data$freq*100, adult_data$freq*100), n=c(10^5,10^5), correct=FALSE)
+#     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "adolsc", "adult", state, stats$statistic, stats$p.value))
+#     
+#     # child vs adult
+#      stats = prop.test(x=c(child_data$freq*100, adult_data$freq*100), n=c(10^5,10^5), correct=FALSE)
+#     print(sprintf("(%s vs %s) %s. chi2 = %f, p = %f", "child", "adult", state, stats$statistic, stats$p.value))
+#}
+### distribution difference between age within a group.
+#   # child vs adolsc
+#   stats = chisq.test(adolsc_group, p=child_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(%s - child vs adolsc) appear freq distrib. chi2 = %f, p = %f", group, stats$statistic, stats$p.value))
+# # adolsc vs adult
+#   stats = chisq.test(adult_group, p = adolsc_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(%s - adolsc vs adult) appear freq distrib. chi2 = %f, p = %f", group, stats$statistic, stats$p.value))
+#  # child vs adult
+#   stats = chisq.test(adult_group, p=child_group, rescale.p = TRUE); #rescale to set sum of p to 1.
+#   print(sprintf("(%s - child vs adult) appear freq distrib. chi2 = %f, p = %f", group, stats$statistic, stats$p.value))
+#
+#}
 
 ## plot duration for model
 #dodgeWidth <- 0.75;
 #duration_AcrossAgeBetwnGroup <- ggplot(data=asd_td_durationModel, aes(x=age, y=duration)) + 
 #	geom_col(aes(fill=group), position=position_dodge(width=dodgeWidth), alpha=0.7, width=0.7) + 
 #	geom_errorbar(aes(color=group, ymin=duration, ymax=duration+std), position=position_dodge(width=dodgeWidth), alpha=0.7, width=0.2, size=0.3) +	
-#	ylab("major state duration in empirical data")
+#	ylab("major state duration in random walk")
 #
 #duration_AcrossAgeWithinGroup <- ggplot(data=asd_td_durationModel, aes(x=group, y=duration )) + 
 #	#geom_violin(alpha=0.7) +
 #	geom_col(aes(fill=age), position=position_dodge(width=dodgeWidth), alpha=0.7, width=0.7) +
 #	geom_errorbar(aes(color=age, ymin=duration, ymax=duration+std), position=position_dodge(width=dodgeWidth), alpha=0.7, width=0.2, size=0.3) +	
-#	ylab("major state duration in empirical data")
+#	ylab("major state duration in random walk")
 
-## stats for duration - found in complementary Matlab code which already has t-tests for duration.
+## stats for duration - find in complementary Matlab code which already has t-tests for duration.
 
 ## save the plots 
 #ggsave(freq_AcrossAgeBetwnGroup, width=12, file = "model_freq_AcrossAgeBetwnGroups.pdf")
