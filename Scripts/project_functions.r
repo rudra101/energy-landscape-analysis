@@ -54,12 +54,20 @@ boxPlotterAcrossAgeBetwnGroup <- function(data, mapping, xLabel, yLabel, addPerc
 	return(desiredPlot)
 }
 
-scatterPlotter <- function(data, dataMapping, smoothMapping, smoothMethod, xLabel, yLabel, addPercent) {
+scatterPlotter <- function(data, dataMapping, smoothMapping, smoothMethod, xLabel, yLabel, addPercentYaxis=FALSE, addPercentXaxis=FALSE) {
  desiredPlot <- ggplot(data) + 
 	 geom_point(dataMapping) +
-	 geom_smooth(smoothMapping, method=smoothMethod) +
-	 scale_y_continuous(labels = function(x) if(addPercent) paste0(x, "%") else paste0(x)) +
-	xlab(xLabel) +
-        ylab(yLabel)
+	 geom_smooth(smoothMapping, method=smoothMethod)
+
+ if (!missing(addPercentXaxis) && addPercentXaxis) {
+      desiredPlot <- desiredPlot + 
+	scale_x_continuous(labels = function(x) paste0(x, "%"))
+ }
+ if (!missing(addPercentYaxis) && addPercentYaxis) {
+      desiredPlot <- desiredPlot + 
+	scale_y_continuous(labels = function(x) paste0(x, "%"))
+ }
+      desiredPlot <- desiredPlot + xlab(xLabel) + ylab(yLabel)
+      return(desiredPlot)
 }
 

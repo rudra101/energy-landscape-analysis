@@ -16,6 +16,10 @@ asd_td_duration <- read.table('~/Documents/asd_td_duration_forR_empirical.csv', 
 asd_td_duration$age <- factor(asd_td_duration$age, levels = c("child", "adolsc", "adult"))
 # load ages of individual subjects.
 asd_td_ages <- read.table('~/Documents/asd_td_ages_forR_empirical.csv', header=T, sep=",")
+asd_td_ages$age <- factor(asd_td_ages$age, levels = c("child", "adolsc", "adult"))
+# load fiqs of individual subjects.
+asd_td_fiqs <- read.table('~/Documents/asd_td_fiqs_forR_empirical.csv', header=T, sep=",")
+asd_td_fiqs$age <- factor(asd_td_fiqs$age, levels = c("child", "adolsc", "adult"))
 
 ## basin frequency for empirical data
 #freq_AcrossAgeWithinGroup <- boxPlotterAcrossAgeWithinGroup(asd_td_freq, aes(x=state, y=freq), "basins", "appearance frequencies in empirical data", TRUE)
@@ -113,27 +117,145 @@ majorSt1 <- asd_td_freq %>% filter(state == "majorSt1");
 majorSt2 <- asd_td_freq %>% filter(state == "majorSt2");
 minorSt_Combn <- asd_td_freq %>% filter(state == "minorSt_Combn");
 ageAndFreq <- cbind(asd_td_ages, majorSt1_freq = majorSt1$freq, majorSt2_freq = majorSt2$freq, minorSt_Combn_freq = minorSt_Combn$freq)
+# remove the OUTLIER age and check. (ASD adult of age 39.1 years.)
+#ageAndFreq <- ageAndFreq %>% filter(ageInYears < 39.1)
 # scatter plot for age in years vs appearance frequencies
-#mapping <- aes(x=ageInYears, y=majorSt1_freq, color=group) 
-#ageVsMajorSt1 <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Major state 1 appearance frequency', TRUE)
-#mapping <- aes(x=ageInYears, y=majorSt2_freq, color=group)
-#ageVsMajorSt2 <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Major state 2 appearance frequency', TRUE)
-#mapping <- aes(x=ageInYears, y=minorSt_Combn_freq, color=group)
-#ageVsMinorCombn <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Minor states (combined) appearance frequency', TRUE)
-## calculate the correlation r and p values.
-for (state in c("majorSt1", "majorSt2", "minorSt_Combn")) {
-      asd_data <- ageAndFreq %>% filter(group=='asd')
-      td_data <- ageAndFreq %>% filter(group=='td')
-      resASD <- cor.test(asd_data$ageInYears,eval(parse(text=sprintf('asd_data$%s_freq', state))))
-      resTD <- cor.test(td_data$ageInYears, eval(parse(text=sprintf('td_data$%s_freq', state))))
-      print(sprintf('(ASD) %s. r = %f, p = %f', state, resASD$estimate, resASD$p.value))
-      print(sprintf('(TD) %s. r = %f, p = %f', state, resTD$estimate, resTD$p.value))
-}
+# Major st 1 appear freq
+mapping <- aes(x=ageInYears, y=majorSt1_freq, color=group) 
+ageVsMajorSt1 <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Major state 1 appearance frequency', TRUE)
+# Major st 2 appear freq
+mapping <- aes(x=ageInYears, y=majorSt2_freq, color=group)
+ageVsMajorSt2 <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Major state 2 appearance frequency', TRUE)
+# Minor states (combined) appear freq
+mapping <- aes(x=ageInYears, y=minorSt_Combn_freq, color=group)
+ageVsMinorCombn <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Minor states (combined) appearance frequency', TRUE)
+
+## now, plots for apperance frequencies along age
+majorSt1AcrossAge <- ageVsMajorSt1 + facet_wrap(~age, scales="free_x", ncol=3)
+majorSt2AcrossAge <- ageVsMajorSt2 + facet_wrap(~age, scales="free_x", ncol=3)
+minorCombnAcrossAge <- ageVsMinorCombn + facet_wrap(~age, scales="free_x", ncol=3) 
+## calculate the correlation r and p values for combined data - appearance freq
+#for (state in c("majorSt1", "majorSt2", "minorSt_Combn")) {
+#      asd_data <- ageAndFreq %>% filter(group=='asd')
+#      td_data <- ageAndFreq %>% filter(group=='td')
+#      resASD <- cor.test(asd_data$ageInYears,eval(parse(text=sprintf('asd_data$%s_freq', state))))
+#      resTD <- cor.test(td_data$ageInYears, eval(parse(text=sprintf('td_data$%s_freq', state))))
+#      print(sprintf('(ASD) %s freq vs age. r = %f, p = %f', state, resASD$estimate, resASD$p.value))
+#      print(sprintf('(TD) %s freq vs age. r = %f, p = %f', state, resTD$estimate, resTD$p.value))
+#}
+## calculate the correlation r and p values across age - appearance freq
+#for (ageDiv in c("child", "adolsc", "adult")) {
+#   for (state in c("majorSt1", "majorSt2", "minorSt_Combn")) {
+#      asd_data <- ageAndFreq %>% filter(group=='asd', age==ageDiv)
+#      td_data <- ageAndFreq %>% filter(group=='td', age==ageDiv)
+#      resASD <- cor.test(asd_data$ageInYears,eval(parse(text=sprintf('asd_data$%s_freq', state))))
+#      resTD <- cor.test(td_data$ageInYears, eval(parse(text=sprintf('td_data$%s_freq', state))))
+#      print(sprintf('(ASD %s) %s freq vs age. r = %f, p = %f', ageDiv, state, resASD$estimate, resASD$p.value))
+#      print(sprintf('(TD %s) %s freq vs age. r = %f, p = %f', ageDiv, state, resTD$estimate, resTD$p.value))
+#     }
+#}
 
 # save the scatter plots
-#ggsave(ageVsMajorSt1, file = "empirical_corr_age_majorSt1.pdf")
-#ggsave(ageVsMajorSt2, file = "empirical_corr_age_majorSt2.pdf")
-#ggsave(ageVsMinorCombn, file = "empirical_corr_age_minorStCombn.pdf")
+#ggsave(ageVsMajorSt1, file = "ageReset_empirical_corr_age_majorSt1.pdf")
+#ggsave(ageVsMajorSt2, file = "ageReset_empirical_corr_age_majorSt2.pdf")
+#ggsave(ageVsMinorCombn, file = "ageReset_empirical_corr_age_minorStCombn.pdf")
+## save the across age plots 
+#ggsave(majorSt1AcrossAge, width=12, file = "acrossAge_empirical_corr_age_majorSt1.pdf")
+#ggsave(majorSt2AcrossAge, width=12, file = "acrossAge_empirical_corr_age_majorSt2.pdf")
+#ggsave(minorCombnAcrossAge, width=12, file = "acrossAge_empirical_corr_age_minorStCombn.pdf")
+
+# bind FIQs with appearance frequency data
+#fiqAndFreq <- cbind(asd_td_fiqs, majorSt1_freq = majorSt1$freq, majorSt2_freq = majorSt2$freq, minorSt_Combn_freq = minorSt_Combn$freq)
+## scatter plot for age in years vs appearance frequencies
+## Caution TBD - fix xlabels and percentage time. Think deeply about plotting different age group data for ASD/TD.
+#mapping <- aes(y=FIQ, x=majorSt1_freq, color=group) 
+#ageVsMajorSt1 <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Major state 1 appearance frequency', TRUE)
+#mapping <- aes(y=FIQ, x=majorSt2_freq, color=group)
+#ageVsMajorSt2 <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Major state 2 appearance frequency', TRUE)
+#mapping <- aes(y=FIQ, x=minorSt_Combn_freq, color=group)
+#ageVsMinorCombn <- scatterPlotter(ageAndFreq, mapping, mapping, 'lm', 'age in years', 'Minor states (combined) appearance frequency', TRUE)
+#
+
+## scatter plots for empirical trans frequencies
+#bind transition measures with age data
+directMjrTrans <- asd_td_trans %>% filter(transType == "direct MajorTrans");
+directMnrTrans <- asd_td_trans %>% filter(transType == "direct MinorTrans");
+indirMjrTrans <- asd_td_trans %>% filter(transType == "indirect MajorTrans");
+ageAndTrans <- cbind(asd_td_ages, directMjrTrans_freq = directMjrTrans$transFreq, directMnrTrans_freq = directMnrTrans$transFreq, indirMjrTrans_freq = indirMjrTrans$transFreq)
+# remove the OUTLIER age and check. (ASD adult of age 39.1 years.)
+ageAndTrans <- ageAndTrans %>% filter(ageInYears < 39.1)
+# scatter plot for age in years vs transition frequencies
+mapping <- aes(x=ageInYears, y=directMjrTrans_freq, color=group) 
+ageVsDirMjrTrans <- scatterPlotter(ageAndTrans, mapping, mapping, 'lm', 'age in years', 'Direct transition frequency between major states', TRUE)
+mapping <- aes(x=ageInYears, y=directMnrTrans_freq, color=group)
+ageVsDirMnrTrans <- scatterPlotter(ageAndTrans, mapping, mapping, 'lm', 'age in years', 'Direct transition frequency between minor states', TRUE)
+mapping <- aes(x=ageInYears, y=indirMjrTrans_freq, color=group)
+ageVsIndirMjrTrans <- scatterPlotter(ageAndTrans, mapping, mapping, 'lm', 'age in years', 'Indirect transition frequency between major states', TRUE)
+
+## now, plots for transition frequencies along age
+acrossAgeDirMjrTrans <- ageVsDirMjrTrans + facet_wrap(~age, scales="free_x", ncol=3)
+acrossAgeDirMnrTrans <- ageVsDirMnrTrans + facet_wrap(~age, scales="free_x", ncol=3)
+acrossAgeIndirMjrTrans <- ageVsIndirMjrTrans + facet_wrap(~age, scales="free_x", ncol=3) 
+## calculate the correlation r and p values combined - trans freq
+#for (transType in c("directMjrTrans", "directMnrTrans", "indirMjrTrans")) {
+#      asd_data <- ageAndTrans %>% filter(group=='asd')
+#      td_data <- ageAndTrans %>% filter(group=='td')
+#      resASD <- cor.test(asd_data$ageInYears,eval(parse(text=sprintf('asd_data$%s_freq', transType))))
+#      resTD <- cor.test(td_data$ageInYears, eval(parse(text=sprintf('td_data$%s_freq', transType))))
+#      print(sprintf('(ASD) %s vs age. r = %f, p = %f', transType, resASD$estimate, resASD$p.value))
+#      print(sprintf('(TD) %s vs age. r = %f, p = %f', transType, resTD$estimate, resTD$p.value))
+#}
+
+## calculate the correlation r and p values across age - trans freq
+#for (ageDiv in c("child", "adolsc", "adult")) {
+#for (transType in c("directMjrTrans", "directMnrTrans", "indirMjrTrans")) {
+#      asd_data <- ageAndTrans %>% filter(group=='asd', age==ageDiv)
+#      td_data <- ageAndTrans %>% filter(group=='td', age==ageDiv)
+#      resASD <- cor.test(asd_data$ageInYears,eval(parse(text=sprintf('asd_data$%s_freq', transType))))
+#      resTD <- cor.test(td_data$ageInYears, eval(parse(text=sprintf('td_data$%s_freq', transType))))
+#      print(sprintf('(ASD %s) %s vs age. r = %f, p = %f', ageDiv, transType, resASD$estimate, resASD$p.value))
+#      print(sprintf('(TD %s) %s vs age. r = %f, p = %f', ageDiv, transType, resTD$estimate, resTD$p.value))
+#   }
+#}
+
+# save the scatter plots
+#ggsave(ageVsDirMjrTrans, file = "ageReset_empirical_corr_age_DirMjrTrans.pdf")
+#ggsave(ageVsDirMnrTrans, file = "ageReset_empirical_corr_age_DirMnrTrans.pdf")
+#ggsave(ageVsIndirMjrTrans, file = "ageReset_empirical_corr_age_IndirMjrTrans.pdf")
+#ggsave(acrossAgeDirMjrTrans, width=12, file = "acrossAge_empirical_corr_age_DirMjrTrans.pdf")
+#ggsave(acrossAgeDirMnrTrans, width=12, file = "acrossAge_empirical_corr_age_DirMnrTrans.pdf")
+#ggsave(acrossAgeIndirMjrTrans, width=12, file = "acrossAge_empirical_corr_age_IndirMjrTrans.pdf")
+
+
+## scatter plots for duration of major states in subjects.  
+ageAndDuration <- cbind(asd_td_ages, duration = asd_td_duration$duration)
+# remove the OUTLIER age and check. (ASD adult of age 39.1 years.)
+ageAndDuration <- ageAndDuration %>% filter(ageInYears < 39.1)
+#scatter plot 
+mapping <- aes(x=ageInYears, y=duration, color=group)
+ageVsDuration <- scatterPlotter(ageAndDuration, mapping, mapping, 'lm', 'age in years', 'Duration of major states', FALSE)
+acrossAgeDuration <- ageVsDuration + facet_wrap(~age, scales="free_x", ncol=3)
+ 
+## calculate the correlation r and p values - duration of major states
+#asd_data <- ageAndDuration %>% filter(group=='asd')
+#td_data <- ageAndDuration %>% filter(group=='td')
+#resASD <- cor.test(asd_data$ageInYears,asd_data$duration)
+#resTD <- cor.test(td_data$ageInYears, td_data$duration)
+#print(sprintf('(ASD) duration vs age. r = %f, p = %f', resASD$estimate, resASD$p.value))
+#print(sprintf('(TD) duration vs age. r = %f, p = %f', resTD$estimate, resTD$p.value))
+
+## calculate the correlation r and p values (across age) - duration of major states
+for (ageDiv in c("child", "adolsc", "adult")) {
+	asd_data <- ageAndDuration %>% filter(group=='asd', age==ageDiv)
+	td_data <- ageAndDuration %>% filter(group=='td', age==ageDiv)
+	resASD <- cor.test(asd_data$ageInYears,asd_data$duration)
+	resTD <- cor.test(td_data$ageInYears, td_data$duration)
+	print(sprintf('(ASD %s) duration vs age. r = %f, p = %f', ageDiv, resASD$estimate, resASD$p.value))
+	print(sprintf('(TD %s) duration vs age. r = %f, p = %f', ageDiv, resTD$estimate, resTD$p.value))
+}
+# save the duration scatter plot
+#ggsave(ageVsDuration, file = "ageReset_empiricial_corr_age_duration.pdf");
+ggsave(acrossAgeDuration, width = 12, file = "acrossAge_empiricial_corr_age_duration.pdf");
 
 #### Below Section for plotting and analysis of MODEL data. #####
 #asd_td_bsnSzModel <- read.table('~/Documents/asd_td_basinSize_forR_model.csv', header=T, sep=",")
