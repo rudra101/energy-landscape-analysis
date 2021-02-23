@@ -1,15 +1,26 @@
-%%below lines generated using Python code. Didn't know how to best handle these many data points across six groups.
-%%eval can be used to mimic what is being done in Python.
+%%eval can be used to set these many data points.
 global ASD TD;
-%for group = ["ASD", "TD"];
-%for age = ["child", "adolsc", "adult"];
-%eval(sprintf("datastruct = load('exactEzaki_%s_%s_MEM_results_10mm.mat');", lower(group),age));
-%for prop = ["h", "J", "rD", "r", "majorstateIndices", "LocalMinIndex",  "majorStateDuration", "indirectTransFreq", "probN", "freq", "freqTrans", "freqDirectTrans", "basinSizePercent", "basinDurations","mean_basin_dur", "std_basin_dur"]; 
-%eval(sprintf('%s.%s.%s = datastruct.%s;', group, age, prop, prop));
-%end
-%end
-%end
-%
+for group = ["ASD", "TD"];
+for age = ["child", "adolsc", "adult"];
+eval(sprintf("datastruct = load('exactEzaki_%s_%s_MEM_results_10mm.mat');", lower(group),age));
+for prop = ["h", "J", "rD", "r", "majorstateIndices", "LocalMinIndex",  "majorStateDuration", "indirectTransFreq", "probN", "freq", "freqTrans", "freqDirectTrans", "basinSizePercent", "basinDurations","mean_basin_dur", "std_basin_dur"]; 
+eval(sprintf('%s.%s.%s = datastruct.%s;', group, age, prop, prop));
+end
+end
+end
+%% summarize correlated and anti-correlated modules in minor and major states of the subjects
+for group = ["ASD", "TD"];
+for age = ["child", "adolsc", "adult"];
+   majorStIndx = eval(sprintf('%s.%s.majorstateIndices', group, age));
+   localMinIndx = eval(sprintf('%s.%s.LocalMinIndex', group, age)); 
+   pydict = generateNetworkModules(group, age, localMinIndx, majorStIndx);
+   eval(sprintf('%s.%s.corAntiCorMods = pydict;', group, age)); %set cor AntiCor Mods
+   % now, calculate within and across FC vals for empirical subjects based on model information
+   pydict = generateFCvalsForModules(group, age, pydict{'major st'});
+   eval(sprintf('%s.%s.NetModsWithFC = pydict;', group, age)); %set FC vals for network modules
+end
+end
+
 %%summarize the basin duration data - custom
 %fprintf('--------------------\n');
 %fprintf('Basin duration stats\n');
@@ -112,7 +123,7 @@ global ASD TD;
 %plotErrorbar(mean_seq, std_seq);
 %legend('ASD', 'TD'); ylabel('duration of major states')
 %set(gca,'xticklabel', labels);
-%apply two-sample t-test for two groups
+%%apply two-sample t-test for two groups
 %for age = ["child", "adolsc", "adult"];
 % asd_data = eval(sprintf('ASD.%s.majorStateDuration', age));
 % td_data = eval(sprintf('TD.%s.majorStateDuration', age));
@@ -129,7 +140,7 @@ global ASD TD;
 %plotErrorbar(data_mean, data_std);
 %legend({'child', 'adolescent', 'adult'}); ylabel('duration of major states')
 %set(gca,'xticklabel', labels);
-%two-sample t-test within each diagnostic group
+%%two-sample t-test within each diagnostic group
 %for group = ["ASD", "TD"];
 %  childdata   = eval(sprintf('%s.child.majorStateDuration', group));
 %  adolscdata  = eval(sprintf('%s.adolsc.majorStateDuration', group));
@@ -148,7 +159,7 @@ global ASD TD;
 %%export trans_data to R format.
 %formatModelDataAndExportToFileForR("trans")
 %%export appearance frequency to R
-formatModelDataAndExportToFileForR("freq")
+%formatModelDataAndExportToFileForR("freq")
 
 %%empirical data measures (remember it can be done more intuitively in R.)
 %%basin frequencies during random walk
@@ -354,7 +365,6 @@ end
 %as of now, runs t-test only. have to figure how to plot.
 function basinDurationComparer(data1, data2, prop_data1, prop_data2, group)
  [h, p, ~, stats] = ttest2(data1, data2);
- p
  fprintf('(%s) %s vs %s. h = %f, t = %f , p = %f , df = %f\n', group, prop_data1, prop_data2, h, stats.tstat, p, stats.df);
 end
 
