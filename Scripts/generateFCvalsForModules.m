@@ -6,7 +6,7 @@
 % (b) mean of within module FCs for all empirical subjects
 % (c) mean of across module FCs for all empirical subjects 
 function FCDict = generateFCvalsForModules(group, age, localMinIndx, corAntiCorDict);
-  keys = keys(corAntiCorDict); %get keys of the python dict
+  keys = corAntiCorDict.keys(); %get keys of the python dict
   valCell = {};
   for ii = 1:py.len(keys);
       key = char(keys{ii});
@@ -22,7 +22,7 @@ function FCDict = generateFCvalsForModules(group, age, localMinIndx, corAntiCorD
  for ii = 1:py.len(keys);
     key = char(keys{ii});
     % trying to reproduce "'key', inputDict('key')" to use as pyargs
-    argStr = [argStr ',' getSingleQuote() key getSingleQuote sprintf(', valCell{%d}', ii) ]
+    argStr = [argStr ',' getSingleQuote() key getSingleQuote() sprintf(', valCell{%d}', ii) ];
  end
  argStr = ['pyargs(' argStr(2:end) ')']; % remove the first comma from argStr
  FCDict = eval(sprintf('py.dict(%s)', argStr));
@@ -31,7 +31,7 @@ end
 % the output will be of the form - {'cor': ['active': [roilist...], 'inactive': [roilist..], 'withinFCMean': , 'acrossFCMean': },
 %                              'anticor': ['active': [roilist..], 'inactive': [roilist..], 'withinFCMean': , 'acrossFCMean': }
 %                             'combined_withinFCMean': , 'combined_acrossFCMean':  }
-function differentiateModulesCalcFC(group, age, localMinIndx, basinIndices, corrIndices, anticorIndices);
+function res = differentiateModulesCalcFC(group, age, localMinIndx, basinIndices, corrIndices, anticorIndices);
  pattern1 = dec2bin(localMinIndx(basinIndices(1)) - 1, 7);  %find the binary pattern
  pattern2 = dec2bin(localMinIndx(basinIndices(2)) - 1, 7);  %find the binary pattern
 %% first separate correlated indices into active and inactive networks. We will try to calculate mean FCs here also.
@@ -46,18 +46,20 @@ end
 
 % segregates binary digits speficied by `indices` in `pattern` and calculates FC within and across
 function [withinFCMean, acrossFCMean, modules, summaryDict] = getModulesWithMeanAcrossAndWithinFC(group, age, indices, pattern)
- roilist = ["DMN", "FPN", "SAN", "ATN", "SMN", "Auditory", "Visual"]; % left to right labels of binarised statenumber. Refer pg 6 of users_guide.pdf under Ezaki's energy-landscape-analysis folder
- activeInd = indices(pattern1(indices) == '1');
- inactiveInd = indices(pattern1(indices) == '0');
- activeNets = roilist(activeInd); inactiveNets = roilist(inactiveInd);
+ % Caveat: matlab doesn't support string array conversion to python dict 
+%roilist = ["DMN", "FPN", "SAN", "ATN", "SMN", "Auditory", "Visual"]; % left to right labels of binarised statenumber. Refer pg 6 of users_guide.pdf under Ezaki's energy-landscape-analysis folder
+%% find active and inactive networks in the pattern provided
+ activeInd = indices(pattern(indices) == '1');
+ inactiveInd = indices(pattern(indices) == '0');
+ %activeNets = roilist(activeInd); inactiveNets = roilist(inactiveInd);
  modules = {}; % create payload for FCcalculator()
  modules{end+1} = activeInd; modules{end+1} = inactiveInd;
  [withinFCMean, acrossFCMean] = FCcalculator(group, age, modules);
  % create a python dict now
- summaryDict = py.dict(pyargs('active', activeNets, 'inactive', inactiveNets, 'withinFCMean', withinFCMean, 'acrossFCMean', acrossFCMean));
+ summaryDict = py.dict(pyargs('active', activeInd, 'inactive', inactiveInd, 'withinFCMean', withinFCMean, 'acrossFCMean', acrossFCMean));
 end
 
-% modules contain the separated network modules for calculating between and across FC. 
+% modules contain the separated network modules subsequently to be used for calculating between and across FC. 
 function [withinFCMean, acrossFCMean] = FCcalculator(group, age, modules)
 %% calculate within FC
   withinFC = [];
@@ -70,14 +72,14 @@ function [withinFCMean, acrossFCMean] = FCcalculator(group, age, modules)
   acrossFC = 0; 
   cnt = 0;
   for ii = 1:length(modules);
-    for jj = i+1:length(modules);
+    for jj = ii+1:length(modules);
 	  netI = modules{ii};
 	  netJ = modules{jj};
 	  % now, work on netI and netJ;
 	  for xx = 1:length(netI);
 	   for yy = 1:length(netJ);
 	    cnt = cnt + 1;
-            acrossFC = acrossFC + calculateAvgBetwnFC(netI(xx), netJ(yy));
+            acrossFC = acrossFC + calculateAvgBetwnFC(group, age, [netI(xx), netJ(yy)]);
 	   end
 	  end
     end
@@ -90,16 +92,16 @@ function [withinFCMean, acrossFCMean] = FCcalculator(group, age, modules)
    
 end
 
-% if nets = [i j k...], then it calculates average FC value of all possible pairs of (i,j) across all subjects;
+% if nets = [i j k...], then it calculates average FC value of all unique pairs of (i,j) across all subjects
 function res = calculateAvgBetwnFC(group, age, nets)
   global ASD TD;
-  FCMatrices = eval('%s.%s.FCMatrices', group, age);
+  FCMatrices = eval(sprintf('%s.%s.FCMatrices', group, age));
   res = 0; cnt = 0; %cnt will encode number of pairs.
   for ii = 1:length(nets);
    for jj = ii+1:length(nets);
        cnt = cnt + 1;
        subjectFCs = 0;
-       for kk = 1:length(FCMatrices);
+       for kk = 1:length(FCMatrices); % traverse each subjects FC matrix
 	  FCMat = FCMatrices{kk};
 	  subjectFCs = subjectFCs + FCMat(nets(ii), nets(jj));
        end
@@ -109,5 +111,6 @@ function res = calculateAvgBetwnFC(group, age, nets)
   end
   if cnt ~= 0; res = res/cnt;
   else res = NaN;
+  end
 end
 

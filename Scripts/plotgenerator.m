@@ -1,14 +1,22 @@
 %%eval can be used to set these many data points.
 global ASD TD;
-for group = ["ASD", "TD"];
-for age = ["child", "adolsc", "adult"];
-eval(sprintf("datastruct = load('exactEzaki_%s_%s_MEM_results_10mm.mat');", lower(group),age));
-for prop = ["h", "J", "rD", "r", "majorstateIndices", "LocalMinIndex",  "majorStateDuration", "indirectTransFreq", "probN", "freq", "freqTrans", "freqDirectTrans", "basinSizePercent", "basinDurations","mean_basin_dur", "std_basin_dur"]; 
-eval(sprintf('%s.%s.%s = datastruct.%s;', group, age, prop, prop));
-end
-end
-end
+%for group = ["ASD", "TD"];
+%for age = ["child", "adolsc", "adult"];
+%    % MEM results
+%    eval(sprintf("datastruct = load('exactEzaki_%s_%s_MEM_results_10mm.mat');", lower(group),age));
+%    % FC matrices of indiv subjects in a group
+%    eval(sprintf("FCstruct = load('exactEzaki_%s_%s_FCMatrices_10mm.mat');", lower(group),age));
+%    % set FCMatrices of individual subjects
+%    eval(sprintf('%s.%s.FCMatrices = FCstruct.FCMatrices;', group, age));
+%    for prop = ["h", "J", "rD", "r", "majorstateIndices", "LocalMinIndex",  "majorStateDuration", "indirectTransFreq", "probN", "freq", "freqTrans", "freqDirectTrans", "basinSizePercent", "basinDurations","mean_basin_dur", "std_basin_dur"]; 
+%      %set MEM results
+%      eval(sprintf('%s.%s.%s = datastruct.%s;', group, age, prop, prop));
+%    end
+%end
+%end
 %% summarize correlated and anti-correlated modules in minor and major states of the subjects
+%group = "TD";
+%age = "adolsc";
 for group = ["ASD", "TD"];
 for age = ["child", "adolsc", "adult"];
    majorStIndx = eval(sprintf('%s.%s.majorstateIndices', group, age));
@@ -16,10 +24,30 @@ for age = ["child", "adolsc", "adult"];
    pydict = generateNetworkModules(group, age, localMinIndx, majorStIndx);
    eval(sprintf('%s.%s.corAntiCorMods = pydict;', group, age)); %set cor AntiCor Mods
    % now, calculate within and across FC vals for empirical subjects based on model information
-   pydict = generateFCvalsForModules(group, age, pydict{'major st'});
-   eval(sprintf('%s.%s.NetModsWithFC = pydict;', group, age)); %set FC vals for network modules
+   pydictMajor = generateFCvalsForModules(group, age, localMinIndx, pydict{'major st'});
+   pydictMinor = generateFCvalsForModules(group, age, localMinIndx, pydict{'minor st'});
+%% generate figures for major state comparison
+   %createPatternsForComparisons(group, age, pydictMajor, 'majorSt')
+%% generate figures for minor state comparison
+   %createPatternsForComparisons(group, age, pydictMinor, 'minorSt')
+   %close all; %close figures
+   % pydict with both pydict info
+   pydict = py.dict(pyargs('majorSt', pydictMajor, 'minorSt', pydictMinor));
+   %% set the pydict
+   eval(sprintf('%s.%s.NetModsWithFC = pydict;', group, age)); %set FC vals for network modules 
 end
 end
+
+%for group = ["ASD", "TD"];
+%for age = ["child", "adolsc", "adult"];
+%   pydict = eval(sprintf('%s.%s.NetModsWithFC;', group, age)); %get FC vals for network modules
+%   majorPydct = pydict{'majorSt'};
+%   minorPydct = pydict{'minorSt'};
+%   prefix = [char(group) ' ' char(age) ' '];
+%   printWithinAcrossFCInfo(majorPydct, [prefix 'major st']);
+%   printWithinAcrossFCInfo(minorPydct, [prefix 'minor st']);
+%end
+%end
 
 %%summarize the basin duration data - custom
 %fprintf('--------------------\n');
@@ -186,6 +214,20 @@ end
 %	grp = [repmat(strcat("ASD ", age), length(asd_data), 1); repmat(strcat("TD ", age), length(td_data), 1);];
 %	boxPlotsForAppearFreq(minorSt, grp, 'Minor st (combined)', age,  100*asd_data, 100*td_data);
 %end
+
+% netModDict is a python dict
+function printWithinAcrossFCInfo(netModDict, printMsg)
+  fprintf('----------------\n');
+  fprintf(sprintf('Printing. %s.\n', printMsg))
+  fprintf('----------------\n');
+  keys = netModDict.keys();
+  for ii = 1:py.len(keys);
+     key = keys{ii};
+     acrossFC = double(netModDict{key}{'combined_acrossFCMean'});
+     withinFC = double(netModDict{key}{'combined_withinFCMean'});
+     fprintf(sprintf('Comparing basins %s on averages. Across FC: %f. Within FC: %f. <Within> - <Across> = %f.\n', char(key), acrossFC, withinFC, withinFC - acrossFC));
+  end
+end
 
 function formatModelDataAndExportToFileForR(taskType)
 global ASD TD;
