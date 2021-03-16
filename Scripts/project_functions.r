@@ -71,3 +71,39 @@ scatterPlotter <- function(data, dataMapping, smoothMapping, smoothMethod, xLabe
       return(desiredPlot)
 }
 
+# for plottting across and within FC.
+# depending upon dataMapping and facetWrap provided,
+# we can plot (a) across age within a diagnosis group OR,
+# (b) across age between groups.
+generalFCBarPlotter <- function(data, dataMapping, facetWrap, xLabel, yLabel, addRawData=TRUE, expandedLimits=NULL) {
+    desiredPlot <- ggplot(data, dataMapping) + 
+	     geom_bar(position = "dodge", stat = "summary", fun = "mean")
+    if (!is.null(facetWrap)) {
+    desiredPlot <- desiredPlot + facetWrap
+    }
+    if(addRawData) {
+        desiredPlot <- desiredPlot + geom_point(colour="black", position=position_dodge(width=0.9));
+    }
+    if(!is.null(expandedLimits)) {
+	desiredPlot <- desiredPlot + expandedLimits
+    }
+    # add labels
+    desiredPlot <- desiredPlot + xlab(xLabel) + ylab(yLabel);
+    
+    return(desiredPlot)
+}
+
+## functions for running anova
+# print contrast results from TukeyHSD on ANOVA results
+anovaResultsPostTukeyHSD <- function(formula, inputData, contrastList, identifierText) {
+  aov.result <- aov(formula, data=inputData)
+  tidy.tukey.aov.result <- tidy(TukeyHSD(aov.result))
+
+  for(contra in contrastList) {
+  eval(parse(text=sprintf('res <- tidy.tukey.aov.result %%>%% filter(contrast == \"%s\")', contra)))
+  cat(sprintf("%s. contrast(%s) : %f (p=%f).\n", identifierText, contra, res$estimate, res$adj.p.value))
+  }
+
+}
+
+
