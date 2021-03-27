@@ -54,7 +54,7 @@ boxPlotterAcrossAgeBetwnGroup <- function(data, mapping, xLabel, yLabel, addPerc
 	return(desiredPlot)
 }
 
-scatterPlotter <- function(data, dataMapping, smoothMapping, smoothMethod, xLabel, yLabel, addPercentYaxis=FALSE, addPercentXaxis=FALSE) {
+scatterPlotter <- function(data, dataMapping, smoothMapping, smoothMethod, xLabel, yLabel, addPercentYaxis=FALSE, addPercentXaxis=FALSE, facetWrap=NULL) {
  desiredPlot <- ggplot(data) + 
 	 geom_point(dataMapping) +
 	 geom_smooth(smoothMapping, method=smoothMethod)
@@ -66,6 +66,9 @@ scatterPlotter <- function(data, dataMapping, smoothMapping, smoothMethod, xLabe
  if (!missing(addPercentYaxis) && addPercentYaxis) {
       desiredPlot <- desiredPlot + 
 	scale_y_continuous(labels = function(x) paste0(x, "%"))
+ }
+ if (!is.null(facetWrap)) {
+     desiredPlot <- desiredPlot + facetWrap
  }
       desiredPlot <- desiredPlot + xlab(xLabel) + ylab(yLabel)
       return(desiredPlot)
@@ -106,4 +109,11 @@ anovaResultsPostTukeyHSD <- function(formula, inputData, contrastList, identifie
 
 }
 
+# this function to get a tibble containing major st combn frequency for a group
+getMajorStCombnFreqTibble <- function(data, diaggroup) {
+	diaggroup_majorSt1 <- data %>% filter(group==diaggroup, state=='majorSt1')
+	diaggroup_majorSt2 <- data %>% filter(group==diaggroup, state=='majorSt2')
+	diaggroup_major_combn <- tibble(group = diaggroup, age = diaggroup_majorSt1$age, majorStCombnFreq=diaggroup_majorSt1$freq + diaggroup_majorSt2$freq)
+	return(diaggroup_major_combn)
+}
 
