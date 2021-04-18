@@ -1,7 +1,7 @@
 ##a file containing all the helper functions needed for plotting and running stats
 
 ## for bar plots
-barPlotterAcrossAgeWithinGroup <- function(data, mapping, xLabel, yLabel, addPercent) {
+barPlotterAcrossAgeWithinGroup <- function(data, mapping, xLabel, yLabel, addPercent, expandedLimits=NULL) {
 	desiredPlot <- ggplot(data, mapping) +
         #geom_violin(alpha=0.7) +
         geom_col(aes(fill=age), position= position_dodge(width=0.7), width=0.6) +
@@ -10,7 +10,9 @@ barPlotterAcrossAgeWithinGroup <- function(data, mapping, xLabel, yLabel, addPer
         scale_y_continuous(labels = function(x) if(addPercent) paste0(x, "%") else paste0(x)) +
         xlab(xLabel) +
         ylab(yLabel)
-	
+     if(!is.null(expandedLimits)) {
+	desiredPlot <- desiredPlot + expandedLimits
+     }	
 	return(desiredPlot)
 }
 
@@ -55,15 +57,15 @@ boxPlotterAcrossAgeBetwnGroup <- function(data, mapping, xLabel, yLabel, addPerc
 }
 
 scatterPlotter <- function(data, dataMapping, smoothMapping, smoothMethod, xLabel, yLabel, addPercentYaxis=FALSE, addPercentXaxis=FALSE, facetWrap=NULL) {
- desiredPlot <- ggplot(data) + 
-	 geom_point(dataMapping) +
-	 geom_smooth(smoothMapping, method=smoothMethod)
-
- if (!missing(addPercentXaxis) && addPercentXaxis) {
+  desiredPlot <- ggplot(data) + geom_point(dataMapping)
+  if (!is.null(smoothMapping) && !is.null(smoothMethod)) {
+     desiredPlot <- desiredPlot + geom_smooth(smoothMapping, method=smoothMethod)
+  }
+  if (!missing(addPercentXaxis) && addPercentXaxis) {
       desiredPlot <- desiredPlot + 
 	scale_x_continuous(labels = function(x) paste0(x, "%"))
- }
- if (!missing(addPercentYaxis) && addPercentYaxis) {
+  }
+  if (!missing(addPercentYaxis) && addPercentYaxis) {
       desiredPlot <- desiredPlot + 
 	scale_y_continuous(labels = function(x) paste0(x, "%"))
  }
@@ -72,6 +74,18 @@ scatterPlotter <- function(data, dataMapping, smoothMapping, smoothMethod, xLabe
  }
       desiredPlot <- desiredPlot + xlab(xLabel) + ylab(yLabel)
       return(desiredPlot)
+}
+
+#get the label for a metric
+getLabelForMetric <- function(metricName) {
+   #if (metricName == "majorStDuration") {
+   #   return "duration of major states"
+   #}
+  switch(metricName, 
+	 "majorStDuration" = return("duration of major states"),
+	 "minorStCombnFreq" = return("minor state appear freq (combined)"),
+	"indirMjrTrans" = return("indirect trans freq between major states"),
+	"dirMnrTrans" = return("direct trans freq between minor states"))
 }
 
 # for plottting across and within FC.
@@ -115,5 +129,94 @@ getMajorStCombnFreqTibble <- function(data, diaggroup) {
 	diaggroup_majorSt2 <- data %>% filter(group==diaggroup, state=='majorSt2')
 	diaggroup_major_combn <- tibble(group = diaggroup, age = diaggroup_majorSt1$age, majorStCombnFreq=diaggroup_majorSt1$freq + diaggroup_majorSt2$freq)
 	return(diaggroup_major_combn)
+}
+
+# this function takes in a dataframe or tibble, runs partial correlation on all variables and print the result summary
+printParCorResults <- function(data, prefix) {
+	res <- pcor(data)
+	estimates <- res$estimate
+	pvalues <- res$p.value
+	varnames <- colnames(estimates)
+	Nvar = length(varnames)
+	print(sprintf("(%s) running partial correlation for: (%s)", toupper(prefix), paste(varnames, collapse = ',')))
+	cnt = 1;
+	for(jj in c(1:(Nvar-1))) {
+	 for (kk in c((jj+1):Nvar)) {
+	   var1 <- varnames[jj]
+	   var2 <- varnames[kk]
+	   signif_star = "";
+	   if (pvalues[var1, var2] <= 0.05) {
+	   signif_star = "***"
+	   }
+	   print(sprintf("  %s(%s) %s vs %s. r = %f, p = %f", signif_star, letters[cnt], var1, var2, estimates[var1, var2], pvalues[var1, var2]))
+	   cnt = cnt + 1;
+	 }
+	}
+}
+# hashMatch is a function which applies a hash `hashObj` on a list of vectors (keys) to get a list of values.
+hashMatch <- function(hashObj, listObj)
+{
+    lapply(listObj, function(z)
+        {
+            hashObj[[z]]
+        })
+}
+
+# plotter  of multiple correlations of a group (ASD/TD) on a single plot
+# the x-axis data will be a single val, but this implementation supports multiple vals
+# the y-axis data can be multiple vals.
+# nRows and nCols are user passed values to arrangeGrob
+# addYAxisPercent contains true, false values for whether '%' symbol is to be added on y-axis.
+# note: please add percentage support if required
+plotMultipleCorrelation <- function(data, group, nRows, nCols, xDataList, yDataList, xLabelList, yLabelList, addYAxisPercent, plotTitle) {
+
+	Nx <- length(xDataList);
+	Ny <- length(yDataList);
+	# please catch an error if length of x/y data points, don't match 
+	if (Nx != length(unique(xLabelList))) {
+	  stop("message - the number of x data points and x labels don't match")
+	}
+	if (Ny != length(yLabelList)) {
+	  stop("message - the number of y data points and y labels don't match")
+	}
+	tdflag = FALSE; coloradjust <- NULL;
+	if (tolower(group) == "td") { #TD, to use blue color for plotting later.
+	  coloradjust <- scale_color_manual(values=c("TD"="#6290c1"))
+	  tdflag = TRUE;
+	}
+	cnt = 0
+	plots <- vector("list", Nx*Ny) # to contain individual plots
+	# make the plots
+	for (xind in c(1:Nx)) {
+	 xval = xDataList[[xind]]; xlabel = xLabelList[[xind]];
+	 for (yind in c(1:Ny)) {
+	 yval = yDataList[[yind]]; ylabel = yLabelList[[yind]];
+	 percentY="FALSE"
+	 if (addYAxisPercent[[yind]] == TRUE) {percentY="TRUE"}
+	 mapping <- eval(parse(text=sprintf('aes(x=%s, y=%s, color=group)', xval, yval)))
+	 cnt = cnt + 1;
+	 plots[[cnt]] <- eval(parse(text=sprintf("scatterPlotter(data, mapping, mapping, 'lm', xlabel, ylabel, %s, FALSE, NULL)", percentY)))
+	 if (tdflag) { #set the color
+	  coloradjust <- scale_color_manual(values=c("TD"="#6290c1"))
+	  plots[[cnt]] <- plots[[cnt]] + coloradjust
+	 }
+	 # call ggsave to test - It works. 
+	 #ggsave(plots[[cnt]], width=7, file=sprintf("%s.pdf", plotname))
+	 }
+	}
+	# create arrangeGrob object
+	headstart <- "arrangeGrob("
+	payload <- "plots[[1]]"
+	for (jj in seq(2,cnt,1)) {
+	   payload <- c(payload, sprintf("plots[[%d]]", jj))
+	}
+	payload <- paste(payload, collapse=",")
+	tailend <- sprintf(",nrow=%d, ncol=%d,top=plotTitle)", nRows, nCols)
+	finalObj <- paste0(headstart, payload, tailend, collapse="")
+	#print(finalObj)
+	# evaluate the arrangeGrob object
+	resultFig <- eval(parse(text=sprintf("%s", finalObj))) 
+	#ggsave(resultFig, width=13, file="asd_child_majorStFCGap_plots.pdf")
+	return(resultFig)
 }
 

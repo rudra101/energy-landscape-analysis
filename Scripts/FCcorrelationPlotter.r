@@ -8,6 +8,7 @@ library(tidyverse)
 library(grid)
 library(gridExtra) # for adding multiple plots in the same figure
 library(broom)
+library(hash)
 # source the function file
 source('~/Documents/Dissertation Docs & Papers/Scripts/project_functions.r')
 
@@ -53,6 +54,7 @@ td_direct_minorTrans <- asd_td_trans %>% filter(group == 'TD',transType == 'dire
 asd_direct_majorTrans <- asd_td_trans %>% filter(group == 'ASD',transType == 'direct MajorTrans')
 td_direct_majorTrans <- asd_td_trans %>% filter(group == 'TD',transType == 'direct MajorTrans')
 ##Section III. Make objects for ASD and TD groups, which can be directly combined.
+#NOTE: (ADOS scores) children and adolescents have ADOS_GOTHAM_TOTAL values whereas adults have ADOS_TOTAL values.
 asd_combn_data <- tibble(group = asd_fiqs$group,
 			 age = asd_fiqs$age,
 			 FIQ = asd_fiqs$FIQ,
@@ -62,7 +64,7 @@ asd_combn_data <- tibble(group = asd_fiqs$group,
 			 indirectMjrTrans = asd_indirect_trans$transFreq,
 			 directMnrTrans = asd_direct_minorTrans$transFreq,
 			 directMjrTrans = asd_direct_majorTrans$transFreq,
-			 ADOS_TOTAL = asd_ados$ADOS_TOTAL  # ADOS score for ASD
+			 ADOS = asd_ados$ADOS  # ADOS score for ASD
 			 )
 td_combn_data <- tibble(group = td_fiqs$group,
 			 age = td_fiqs$age,
@@ -127,38 +129,95 @@ td_combn_majorSt_gap <- cbind(td_combn_data, majorStGap = td_majorSt_gap$FCval)
 # OUTLIER duration of 37.667 removed. (maximum)
 asd_combn_majorSt_gap <- asd_combn_majorSt_gap %>% filter(duration < 37.6) 
 
-# Section VI. start with plotting correlation. 
-## Major st
-# Section VI (a) - ASD
-# appear freq - major state combined
-mapping <- aes(x=majorStGap, y=majorStCombnFreq, color=group)
-scatter.asd_majorSt_Gap_Freq <- scatterPlotter(asd_combn_majorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | major states', 'major state freq (combined)', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3))
-# duration of major states.
-mapping <- aes(x=majorStGap, y=duration, color=group)
-scatter.asd_majorSt_Gap_Duration <- scatterPlotter(asd_combn_majorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | major states', 'duration of major states', FALSE, FALSE, facet_wrap(~age, scales="free_x", ncol=3))
-# FIQ
-mapping <- aes(x=majorStGap, y=FIQ, color=group)
-scatter.asd_majorSt_Gap_FIQ <- scatterPlotter(asd_combn_majorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | major states', 'FIQ', FALSE, FALSE, facet_wrap(~age, scales="free_x", ncol=3))
-# ADOS TOTAL - 12 ASD child and 20 ASD adolsc have missing ADOS_TOTAL values. (both groups are from ABIDE I UniMichigan)
-mapping <- aes(x=majorStGap, y=ADOS_TOTAL, color=group)
-scatter.asd_majorSt_Gap_ADOS <- scatterPlotter(asd_combn_majorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | major states', 'ADOS', FALSE, FALSE, facet_wrap(~age, scales="free_x", ncol=3))
+# Special Section. create a hashmap to preserve sanity with x and y labels
+# not adding ADOS as it is ADOS_GOTHAM_TOTAL in child, adolsc whereas it is ADOS_TOTAL in adults
+keylist <-c("majorStGap",
+	    "minorStGap",
+	    "majorStCombnFreq",
+	    "duration",
+	    "FIQ",
+	    "indirectMjrTrans",
+	    "directMnrTrans",
+	    "directMjrTrans",
+	    "minorStCombnFreq",
+	    "ADOS",
+	    "td_child_minorSt2",
+	    "td_adolsc_minorSt2",
+	    "td_adolsc_minorSt3",
+	    "td_adult_minorSt2",
+	    "td_adult_minorSt3" 
+	    )
+labelsTibble <- tibble(
+    key = keylist,
+    value = c("<within> - <across> FC | major states", 
+	      "<within> - <across> FC | minor states", 
+	      "major state freq (combined)",
+	      "duration spent in major state basins",
+	      "FIQ",
+	      "indirect trans freq between basins of major states",
+	      "direct trans freq between basins of minor states",
+	      "direct trans freq between basins of major states",
+	      "minor state freq (combined)",
+	      "ADOS total score (*)",
+	      "minor states C-D",
+	      "minor states C-D",
+	      "minor states E-F",
+	      "minor states E-F",
+	      "minor states C-D"
+	      ))
+percentOnYaxis <-tibble(
+        key = keylist,
+        value = c(FALSE,
+		  FALSE,
+		  TRUE,
+		  FALSE,
+		  FALSE,
+		  TRUE,
+		  TRUE,
+		  TRUE,
+		  TRUE,
+		  FALSE,
+		  FALSE,
+		  FALSE,
+		  FALSE,
+		  FALSE,
+		  FALSE))
+labelsHash = hash(keys=labelsTibble$key, values=labelsTibble$value)
+percentYAxisHash = hash(keys=percentOnYaxis$key, values=percentOnYaxis$value)
+# Section VI. start with plotting correlation.
+## Major st FC gap.
+# Section VI (a,b) - ASD and TD
+xDataList <- c("majorStGap");
+yDataList <- c("majorStCombnFreq", "duration", "indirectMjrTrans", "directMnrTrans", "FIQ", "ADOS")
+N = length(yDataList)
+xLabels <- rep('<within> - <across> FC | major states', N)
+yLabels <- hashMatch(labelsHash, yDataList)
+yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
+#save the multiple figures into one grob (each age group) for sanity
+#for (diaggroup in c("ASD", "TD")) {
+#    M = N; #M is for subsetting
+#    if (diaggroup == "TD") { #ADOS not applicable. Ignore
+#     M = N - 1;
+#    }
+#    combnData <- eval(parse(text=sprintf('%s_combn_majorSt_gap', tolower(diaggroup))))
+#  for (ageDiv in c("child", "adolsc", "adult")) { 
+#     
+#     data <- combnData %>% filter(group==diaggroup, age == ageDiv)
+#     agePretty <- ageDiv
+#     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
+#     plotTitle <- sprintf("%s %s | FC gap (major states) vs various metrics", diaggroup, agePretty)
+#     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle)
+#     # save the figure
+#     ggsave(resultFig, width=13, file=sprintf("%s_%s_majorStFCGap_plots.pdf", tolower(diaggroup), ageDiv))
+#  }
+#}
 
-# Section VI (b) - TD. #6290c1 is light blue color.
-# appear freq - major state combined
-mapping <- aes(x=majorStGap, y=majorStCombnFreq, color=group)
-scatter.td_majorSt_Gap_Freq <- scatterPlotter(td_combn_majorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | major states', 'major st freq (combined)', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# duration of major states.
-mapping <- aes(x=majorStGap, y=duration, color=group)
-scatter.td_majorSt_Gap_Duration <- scatterPlotter(td_combn_majorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | major states', 'duration of major states', FALSE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# FIQ
-mapping <- aes(x=majorStGap, y=FIQ, color=group)
-scatter.td_majorSt_Gap_FIQ <- scatterPlotter(td_combn_majorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | major states', 'FIQ', FALSE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# Section VI(c) - major st FC gap - calculate correlation for ASD and TD.
+## Section VI(c) - major st FC gap - calculate correlation for ASD and TD.
 #for (group in c("asd", "td")) {
 #  for (ageDiv in c("child", "adolsc", "adult")) {
 #   data <- eval(parse(text=sprintf('%s_combn_majorSt_gap', group))) %>% filter(age == ageDiv)
-#   for (interest in c("ADOS_TOTAL", "majorStCombnFreq", "duration", "FIQ", "indirectMjrTrans", "directMnrTrans")) {
-#         if (group == "td" && interest=="ADOS_TOTAL") { # not relevant, skip
+#   for (interest in c("ADOS", "majorStCombnFreq", "duration", "FIQ", "indirectMjrTrans", "directMnrTrans")) {
+#         if (group == "td" && interest=="ADOS") { # not relevant, skip
 #		 next
 #	 }
 #	 dataOfInterest <- eval(parse(text=sprintf("data$%s", interest)))
@@ -172,168 +231,95 @@ scatter.td_majorSt_Gap_FIQ <- scatterPlotter(td_combn_majorSt_gap, mapping, mapp
 #      } 
 #   }
 #}
-## Section VII. Minor st. CAUTION - isolated networks which don't form modules have been removed.
+
+### Section VII. Minor st. NOTE: isolated networks which don't form modules have been removed.
 # ASD
+xDataList <- c("minorStGap");
+yDataList <- c("minorStCombnFreq", "duration", "indirectMjrTrans", "directMnrTrans", "FIQ", "ADOS")
+N = length(yDataList)
+xLabels <- rep('<within> - <across> FC | minor states', N)
+yLabels <- hashMatch(labelsHash, yDataList)
+yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
+#save the multiple figures into one grob (each age group) for sanity
+#for (diaggroup in c("ASD")) {
+#    M = N; #M is for subsetting
+#   combnData <- eval(parse(text=sprintf('%s_combn_minorSt_gap', tolower(diaggroup))))
+#  for (ageDiv in c("child", "adolsc", "adult")) { 
+#     
+#     data <- combnData %>% filter(group==diaggroup, age == ageDiv)
+#     agePretty <- ageDiv
+#     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
+#     plotTitle <- sprintf("%s %s | FC gap (minor states) vs various metrics", diaggroup, agePretty)
+#     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle)
+#     # save the figure
+#     ggsave(resultFig, width=13, file=sprintf("%s_%s_minorStFCGap_plots.pdf", tolower(diaggroup), ageDiv))
+#  }
+#}
+
 # combined appear freq of minor states
-mapping <- aes(x=minorStGap, y=minorStCombnFreq, color=group)
-scatter.asd_minorSt_Gap_Freq <- scatterPlotter(asd_combn_minorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states | ASD', 'minor state freq (combined)', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3))
-# indirect major trans freq
-mapping <- aes(x=minorStGap, y=indirectMjrTrans, color=group)
-scatter.asd_minorSt_Gap_indirMjrTrans <- scatterPlotter(asd_combn_minorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states | ASD', 'indirect trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3))
-# direct minor trans freq
-mapping <- aes(x=minorStGap, y=directMnrTrans, color=group)
-scatter.asd_minorSt_Gap_dirMnrTrans <- scatterPlotter(asd_combn_minorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states | ASD', 'direct trans freq between minor states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3))
-# FIQ
-mapping <- aes(x=minorStGap, y=FIQ, color=group)
-scatter.asd_minorSt_Gap_dirMnrTrans <- scatterPlotter(asd_combn_minorSt_gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states | ASD', 'FIQ', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3))
+# Section VII (b). minor st FC gap - calculate correlation for ASD.
+# for (ageDiv in c("child", "adolsc", "adult")) {
+#   data <- asd_combn_minorSt_gap %>% filter(age == ageDiv)
+#   for (interest in c("ADOS", "duration", "minorStCombnFreq", "indirectMjrTrans", "directMnrTrans", "FIQ")) {
+#         dataOfInterest <- eval(parse(text=sprintf("data$%s", interest)))
+#	 res <- cor.test(data$minorStGap, dataOfInterest)
+#	 if (res$p.value <= 0.05) {
+#		signif_star = "***"
+#	 } else {
+#		signif_star = ""
+#	 }
+#	 print(sprintf('%s (ASD %s) minorSt FCGap vs %s. r = %f, p = %f', signif_star, ageDiv, interest, res$estimate, res$p.value))
+#      } 
+#   }
 
-# ADOS Total - 12 ASD child and 20 ASD adolsc have missing ADOS_TOTAL values. (both groups are from ABIDE I UniMichigan) 
-# NOTE: TBD: (a) correlation code (b) need to consider other scores like ADOS_RRB, SOCIAL BEHAVIOR etc
-# minor st FC gap - calculate correlation for ASD.
-#NOTE: need to add ADOS scores also for correlation.
- for (ageDiv in c("child", "adolsc", "adult")) {
-   data <- asd_combn_minorSt_gap %>% filter(age == ageDiv)
-   for (interest in c("minorStCombnFreq", "indirectMjrTrans", "directMnrTrans", "FIQ")) {
-         dataOfInterest <- eval(parse(text=sprintf("data$%s", interest)))
-	 res <- cor.test(data$minorStGap, dataOfInterest)
-	 if (res$p.value <= 0.05) {
-		signif_star = "***"
-	 } else {
-		signif_star = ""
-	 }
-	 print(sprintf('%s (ASD %s) minorSt FCGap vs %s. r = %f, p = %f', signif_star, ageDiv, interest, res$estimate, res$p.value))
-      } 
-   }
-
+## Section VII(c) - (ASD) save the figures for FC gap in minor states
+#  metricList <- c("indirMjrTrans", "dirMnrTrans", "ADOS", "FIQ", "Duration", "Freq")
+#  for (metric in metricList) {
+#       objectToSave <- sprintf("scatter.asd_minorSt_Gap_%s", metric)
+#       filename <- sprintf("scatter_asd_minorSt_Gap_%s.pdf", metric) 
+#       # invoke ggsave
+#       eval(parse(text=sprintf("ggsave(%s, width=12, file='%s')", objectToSave, filename))) 
+#  }
 
 # TD - all age groups to be treated individually. ONLY those modules considered where networks segregate as anti-correlated.
-# (a) child - only minorSt_1-4 is to be considered.
-# combined appear freq of minor states
-mapping <- aes(x=minorStGap, y=minorStCombnFreq, color=group)
-scatter.td_child_minorSt2_Gap_Freq <- scatterPlotter(td_child_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'minor state freq (combined)', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# indirect major trans freq
-mapping <- aes(x=minorStGap, y=indirectMjrTrans, color=group)
-scatter.td_child_minorSt2_Gap_indirMjrTrans <- scatterPlotter(td_child_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'indirect trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct minor trans freq
-mapping <- aes(x=minorStGap, y=directMnrTrans, color=group)
-scatter.td_child_minorSt2_Gap_dirMnrTrans <- scatterPlotter(td_child_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between minor states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct major trans freq
-mapping <- aes(x=minorStGap, y=directMjrTrans, color=group)
-scatter.td_child_minorSt2_Gap_dirMjrTrans <- scatterPlotter(td_child_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# FIQ
-mapping <- aes(x=minorStGap, y=FIQ, color=group)
-scatter.td_child_minorSt2_Gap_FIQ <- scatterPlotter(td_child_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'FIQ', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# combine the TD child plots
-td_child_minorSt_plots <- arrangeGrob(scatter.td_child_minorSt2_Gap_Freq,
-				    scatter.td_child_minorSt2_Gap_indirMjrTrans,
-				    scatter.td_child_minorSt2_Gap_dirMnrTrans,
-				    scatter.td_child_minorSt2_Gap_dirMjrTrans,
-				    scatter.td_child_minorSt2_Gap_FIQ,
-				    nrow=3, ncol=3,
-				    top=textGrob("TD child modules | minor st A-D",gp=gpar(fontsize=18,font=3)))
+# (a) child - only minorSt_1-4 (3-4 in new arrangement of labels) is to be considered.
+# It corresponds to td_child_combn_minorSt2_Gap
 # (b) adolsc - minorSt_2-5 (td_adolsc_minorSt2_Gap) and minorSt_1-6 (td_adolsc_minorSt3_Gap) are to be considered.
-# adolsc - td_adolsc_minorSt2_Gap 
-# minor st combn frequency 
-mapping <- aes(x=minorStGap, y=minorStCombnFreq, color=group)
-scatter.td_adolsc_minorSt2_Gap_Freq <- scatterPlotter(td_adolsc_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'minor state freq (combined)', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# indirect major trans freq
-mapping <- aes(x=minorStGap, y=indirectMjrTrans, color=group)
-scatter.td_adolsc_minorSt2_Gap_indirMjrTrans <- scatterPlotter(td_adolsc_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'indirect trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct minor trans freq
-mapping <- aes(x=minorStGap, y=directMnrTrans, color=group)
-scatter.td_adolsc_minorSt2_Gap_dirMnrTrans <- scatterPlotter(td_adolsc_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between minor states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct major trans freq
-mapping <- aes(x=minorStGap, y=directMjrTrans, color=group)
-scatter.td_adolsc_minorSt2_Gap_dirMjrTrans <- scatterPlotter(td_adolsc_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# FIQ
-mapping <- aes(x=minorStGap, y=FIQ, color=group)
-scatter.td_adolsc_minorSt2_Gap_FIQ <- scatterPlotter(td_adolsc_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'FIQ', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# combine the TD adolsc plots for minorSt2
-td_adolsc_minorSt2_plots <- arrangeGrob(scatter.td_adolsc_minorSt2_Gap_Freq,
-				    scatter.td_adolsc_minorSt2_Gap_indirMjrTrans,
-				    scatter.td_adolsc_minorSt2_Gap_dirMnrTrans,
-				    scatter.td_adolsc_minorSt2_Gap_dirMjrTrans,
-				    scatter.td_adolsc_minorSt2_Gap_FIQ,
-				    nrow=3, ncol=3,
-				    top=textGrob("TD adolsc modules | minor st B-E",gp=gpar(fontsize=18,font=3)))
-# adolsc - td_adolsc_minorSt3_Gap 
-# minor st combn frequency 
-mapping <- aes(x=minorStGap, y=minorStCombnFreq, color=group)
-scatter.td_adolsc_minorSt3_Gap_Freq <- scatterPlotter(td_adolsc_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'minor state freq (combined)', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# indirect major trans freq
-mapping <- aes(x=minorStGap, y=indirectMjrTrans, color=group)
-scatter.td_adolsc_minorSt3_Gap_indirMjrTrans <- scatterPlotter(td_adolsc_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'indirect trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct minor trans freq
-mapping <- aes(x=minorStGap, y=directMnrTrans, color=group)
-scatter.td_adolsc_minorSt3_Gap_dirMnrTrans <- scatterPlotter(td_adolsc_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between minor states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct major trans freq
-mapping <- aes(x=minorStGap, y=directMjrTrans, color=group)
-scatter.td_adolsc_minorSt3_Gap_dirMjrTrans <- scatterPlotter(td_adolsc_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# FIQ
-mapping <- aes(x=minorStGap, y=FIQ, color=group)
-scatter.td_adolsc_minorSt3_Gap_FIQ <- scatterPlotter(td_adolsc_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'FIQ', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# combine the TD adolsc plots for minorSt3
-td_adolsc_minorSt3_plots <- arrangeGrob(scatter.td_adolsc_minorSt3_Gap_Freq,
-				    scatter.td_adolsc_minorSt3_Gap_indirMjrTrans,
-				    scatter.td_adolsc_minorSt3_Gap_dirMnrTrans,
-				    scatter.td_adolsc_minorSt3_Gap_dirMjrTrans,
-				    scatter.td_adolsc_minorSt3_Gap_FIQ,
-				    nrow=3, ncol=3,
-				    top=textGrob("TD adolsc modules | minor st A-F",gp=gpar(fontsize=18,font=3)))
-#
 # (c) adult - minorSt_2-5 (td_adult_minorSt2_Gap) and minorSt_1-6 (td_adult_minorSt3_Gap) are to be considered. 
-# minor st combn frequency 
-mapping <- aes(x=minorStGap, y=minorStCombnFreq, color=group)
-scatter.td_adult_minorSt2_Gap_Freq <- scatterPlotter(td_adult_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'minor state freq (combined)', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# indirect major trans freq
-mapping <- aes(x=minorStGap, y=indirectMjrTrans, color=group)
-scatter.td_adult_minorSt2_Gap_indirMjrTrans <- scatterPlotter(td_adult_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'indirect trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct minor trans freq
-mapping <- aes(x=minorStGap, y=directMnrTrans, color=group)
-scatter.td_adult_minorSt2_Gap_dirMnrTrans <- scatterPlotter(td_adult_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between minor states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct major trans freq
-mapping <- aes(x=minorStGap, y=directMjrTrans, color=group)
-scatter.td_adult_minorSt2_Gap_dirMjrTrans <- scatterPlotter(td_adult_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# FIQ
-mapping <- aes(x=minorStGap, y=FIQ, color=group)
-scatter.td_adult_minorSt2_Gap_FIQ <- scatterPlotter(td_adult_combn_minorSt2_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'FIQ', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# combine the TD adult plots for minorSt2
-td_adult_minorSt2_plots <- arrangeGrob(scatter.td_adult_minorSt2_Gap_Freq,
-				    scatter.td_adult_minorSt2_Gap_indirMjrTrans,
-				    scatter.td_adult_minorSt2_Gap_dirMnrTrans,
-				    scatter.td_adult_minorSt2_Gap_dirMjrTrans,
-				    scatter.td_adult_minorSt2_Gap_FIQ,
-				    nrow=3, ncol=3,
-				    top=textGrob("TD adult modules | minor st B-E",gp=gpar(fontsize=18,font=3)))
-## adult - td_adult_minorSt3_Gap 
-# minor st combn frequency 
-mapping <- aes(x=minorStGap, y=minorStCombnFreq, color=group)
-scatter.td_adult_minorSt3_Gap_Freq <- scatterPlotter(td_adult_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'minor state freq (combined)', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# indirect major trans freq
-mapping <- aes(x=minorStGap, y=indirectMjrTrans, color=group)
-scatter.td_adult_minorSt3_Gap_indirMjrTrans <- scatterPlotter(td_adult_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'indirect trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct minor trans freq
-mapping <- aes(x=minorStGap, y=directMnrTrans, color=group)
-scatter.td_adult_minorSt3_Gap_dirMnrTrans <- scatterPlotter(td_adult_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between minor states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# direct major trans freq
-mapping <- aes(x=minorStGap, y=directMjrTrans, color=group)
-scatter.td_adult_minorSt3_Gap_dirMjrTrans <- scatterPlotter(td_adult_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'direct trans freq between major states', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# FIQ
-mapping <- aes(x=minorStGap, y=FIQ, color=group)
-scatter.td_adult_minorSt3_Gap_FIQ <- scatterPlotter(td_adult_combn_minorSt3_Gap, mapping, mapping, 'lm', '<within> - <across> FC | minor states', 'FIQ', TRUE, FALSE, facet_wrap(~age, scales="free_x", ncol=3)) + scale_color_manual(values=c("TD"="#6290c1"))
-# combine the TD adult plots for minorSt3
-td_adult_minorSt3_plots <- arrangeGrob(scatter.td_adult_minorSt3_Gap_Freq,
-				    scatter.td_adult_minorSt3_Gap_indirMjrTrans,
-				    scatter.td_adult_minorSt3_Gap_dirMnrTrans,
-				    scatter.td_adult_minorSt3_Gap_dirMjrTrans,
-				    scatter.td_adult_minorSt3_Gap_FIQ,
-				    nrow=3, ncol=3,
-				    top=textGrob("TD adult modules | minor st A-F",gp=gpar(fontsize=18,font=3)))
+xDataList <- c("minorStGap");
+yDataList <- c("minorStCombnFreq", "duration", "indirectMjrTrans", "directMnrTrans", "FIQ")
+N = length(yDataList)
+yLabels <- hashMatch(labelsHash, yDataList)
+yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
+#save the multiple figures into one grob (each age group) for sanity
+for (diaggroup in c("TD")) {
+  M = N; #M is for subsetting 
+  for (ageDiv in c("child", "adolsc", "adult")) {
+    modules <- switch(ageDiv,
+	    "child" = c("minorSt2"),
+	    "adolsc" = c("minorSt2", "minorSt3"),
+	    "adult" = c("minorSt2", "minorSt3")
+	    )
+     for (module in modules) {
+  	     minorStKey <- sprintf('%s_%s_%s', tolower(diaggroup), ageDiv, module)
+	     minorStName <- labelsHash[[minorStKey]]
+	     xLabels <- rep(sprintf('<within> - <across> FC | %s', minorStName), N)
+	     combnData <- eval(parse(text=sprintf('%s_%s_combn_%s_Gap', tolower(diaggroup), ageDiv, module)))
+	     data <- combnData %>% filter(group==diaggroup, age == ageDiv)
+	     agePretty <- ageDiv
+	     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
+	     plotTitle <- sprintf("%s %s | FC gap | %s", diaggroup, agePretty, minorStName)
+	     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle)
+	     # save the figure
+	     ggsave(resultFig, width=13, file=sprintf("%s_%s_%s_FCGap_plots.pdf", tolower(diaggroup), ageDiv, module))
+     }
+  }
+}
 
-# minor st FC gap - calculate correlation for TD.
+## minor st FC gap - calculate correlation for TD.
 # for (ageDiv in c("child", "adolsc", "adult")) {
 #   for (index in c("2", "3")) {
-#   for (interest in c("minorStCombnFreq", "indirectMjrTrans", "directMnrTrans", "FIQ", "directMjrTrans")) {
+#   for (interest in c("duration", "minorStCombnFreq", "indirectMjrTrans", "directMnrTrans", "FIQ", "directMjrTrans")) {
 #         if (ageDiv == "child" && index == "3") { # no such state index in TD child, skip
 #		 next
 #	 }
@@ -349,5 +335,4 @@ td_adult_minorSt3_plots <- arrangeGrob(scatter.td_adult_minorSt3_Gap_Freq,
 #      } 
 #   }
 # }
-
 
