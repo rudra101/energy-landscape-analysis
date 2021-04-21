@@ -206,7 +206,9 @@ yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
 #     agePretty <- ageDiv
 #     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
 #     plotTitle <- sprintf("%s %s | FC gap (major states) vs various metrics", diaggroup, agePretty)
-#     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle)
+#     dataInfo <- sprintf('%s %s', diaggroup, ageDiv) # to be pased to the function below
+#     # this function already contains code for plotting outliers   
+#     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle, dataInfo)
 #     # save the figure
 #     ggsave(resultFig, width=13, file=sprintf("%s_%s_majorStFCGap_plots.pdf", tolower(diaggroup), ageDiv))
 #  }
@@ -250,7 +252,8 @@ yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
 #     agePretty <- ageDiv
 #     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
 #     plotTitle <- sprintf("%s %s | FC gap (minor states) vs various metrics", diaggroup, agePretty)
-#     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle)
+#     dataInfo <- sprintf('%s %s', diaggroup, ageDiv)
+#     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle, dataInfo)
 #     # save the figure
 #     ggsave(resultFig, width=13, file=sprintf("%s_%s_minorStFCGap_plots.pdf", tolower(diaggroup), ageDiv))
 #  }
@@ -309,7 +312,8 @@ for (diaggroup in c("TD")) {
 	     agePretty <- ageDiv
 	     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
 	     plotTitle <- sprintf("%s %s | FC gap | %s", diaggroup, agePretty, minorStName)
-	     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle)
+	     dataInfo <- sprintf('%s %s %s', diaggroup, ageDiv, minorStName)
+	     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle, dataInfo)
 	     # save the figure
 	     ggsave(resultFig, width=13, file=sprintf("%s_%s_%s_FCGap_plots.pdf", tolower(diaggroup), ageDiv, module))
      }
@@ -319,7 +323,7 @@ for (diaggroup in c("TD")) {
 ## minor st FC gap - calculate correlation for TD.
 # for (ageDiv in c("child", "adolsc", "adult")) {
 #   for (index in c("2", "3")) {
-#   for (interest in c("duration", "minorStCombnFreq", "indirectMjrTrans", "directMnrTrans", "FIQ", "directMjrTrans")) {
+#   for (interest in yDataList)) {
 #         if (ageDiv == "child" && index == "3") { # no such state index in TD child, skip
 #		 next
 #	 }

@@ -162,13 +162,38 @@ hashMatch <- function(hashObj, listObj)
         })
 }
 
+# finds outliers by calculating the residuals from a linear model fit. Any data point with |residual| > 2*std is tagged as outlier in a table where columns are `indp`, `depnd`, `residuals`, `outlier`
+# indp and depnd are independent and dependent variables respectively
+# reference: https://stats.libretexts.org/Bookshelves/Introductory_Statistics/Book%3A_Introductory_Statistics_(OpenStax)/12%3A_Linear_Regression_and_Correlation/12.07%3A_Outliers
+outlierDetector <- function(data, indp, depnd, printMsg) {
+  filteredData <- eval(parse(text=sprintf("data %%>%% filter(!is.na(%s), !is.na(%s))", indp, depnd)))
+  fit <- eval(parse(text=sprintf("lm(%s ~ %s, filteredData)", depnd, indp)))
+  lmTibble <- eval(parse(text=sprintf("tibble(group = filteredData$group, %s = filteredData$%s, %s = filteredData$%s, residuals = residuals(fit))", indp, indp, depnd, depnd))) 
+  #square the residuals and sum them. 
+  SSE <- sum((lmTibble$residuals)*(lmTibble$residuals))
+  N <- length(lmTibble$residuals)
+  std <- sqrt(SSE/(N-2))
+  #outliers <- lmTibble %>% filter(abs(residuals) > 2*std)
+  outlierRemoved <- lmTibble %>% filter(abs(residuals) <= 2*std)
+  res <- eval(parse(text=sprintf("cor.test(outlierRemoved$%s, outlierRemoved$%s)", indp, depnd)))
+  if (res$p.value <= 0.05) {
+     signif_star = "***"
+   } else { 
+     signif_star = ""
+   }
+  print(sprintf('%s %s. r = %f, p = %f', signif_star, printMsg, res$estimate, res$p.value))
+  # implement a vector of outlier boolean values
+  lmTibble$outlier <- ifelse(abs(lmTibble$residuals) > 2*std, TRUE, FALSE)
+  return(lmTibble)
+}
+
 # plotter  of multiple correlations of a group (ASD/TD) on a single plot
 # the x-axis data will be a single val, but this implementation supports multiple vals
 # the y-axis data can be multiple vals.
 # nRows and nCols are user passed values to arrangeGrob
 # addYAxisPercent contains true, false values for whether '%' symbol is to be added on y-axis.
 # note: please add percentage support if required
-plotMultipleCorrelation <- function(data, group, nRows, nCols, xDataList, yDataList, xLabelList, yLabelList, addYAxisPercent, plotTitle) {
+plotMultipleCorrelation <- function(data, group, nRows, nCols, xDataList, yDataList, xLabelList, yLabelList, addYAxisPercent, plotTitle, dataInfo) {
 
 	Nx <- length(xDataList);
 	Ny <- length(yDataList);
@@ -193,14 +218,25 @@ plotMultipleCorrelation <- function(data, group, nRows, nCols, xDataList, yDataL
 	 yval = yDataList[[yind]]; ylabel = yLabelList[[yind]];
 	 percentY="FALSE"
 	 if (addYAxisPercent[[yind]] == TRUE) {percentY="TRUE"}
-	 mapping <- eval(parse(text=sprintf('aes(x=%s, y=%s, color=group)', xval, yval)))
+	 
+         # insert outlier detection code here.
+	 corrMessage <- sprintf('(outlier removed - %s) %s vs %s', dataInfo, xval, yval)  #message to be used in correlation
+	 outlierTibble <- outlierDetector(data, xval, yval, corrMessage)
+	 outlierRemoved <- outlierTibble %>% filter(outlier == FALSE)
+	 outliers <- outlierTibble %>% filter(outlier == TRUE)
+	 
+         mapping <- eval(parse(text=sprintf('aes(x=%s, y=%s, color=group)', xval, yval))) 
 	 cnt = cnt + 1;
-	 plots[[cnt]] <- eval(parse(text=sprintf("scatterPlotter(data, mapping, mapping, 'lm', xlabel, ylabel, %s, FALSE, NULL)", percentY)))
+	 plots[[cnt]] <- eval(parse(text=sprintf("scatterPlotter(outlierRemoved, mapping, mapping, 'lm', xlabel, ylabel, %s, FALSE, NULL)", percentY)))
+	 # insert outliers on top of the previous plot
+	 plots[[cnt]] <- plots[[cnt]] + geom_point(data=outliers, eval(parse(text=sprintf("aes(x=%s, y=%s)", xval, yval))), shape=7, size=3.5)  #shape 7 is a square with a cross inside
+
 	 if (tdflag) { #set the color
 	  coloradjust <- scale_color_manual(values=c("TD"="#6290c1"))
 	  plots[[cnt]] <- plots[[cnt]] + coloradjust
 	 }
 	 # call ggsave to test - It works. 
+	 plotname <- sprintf('%s_vs_%s', xval, yval)
 	 #ggsave(plots[[cnt]], width=7, file=sprintf("%s.pdf", plotname))
 	 }
 	}
@@ -219,4 +255,5 @@ plotMultipleCorrelation <- function(data, group, nRows, nCols, xDataList, yDataL
 	#ggsave(resultFig, width=13, file="asd_child_majorStFCGap_plots.pdf")
 	return(resultFig)
 }
+
 
