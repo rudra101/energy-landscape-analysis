@@ -30,9 +30,18 @@ asd_td_duration$age <- factor(asd_td_duration$age, levels = c("child", "adolsc",
 asd_td_trans <- read.table('~/Documents/asd_td_trans_forR_empirical.csv', header=T, sep=",")
 asd_td_trans <- asd_td_trans %>% mutate(transFreq = transFreq *100) # turn into percentage
 asd_td_trans$age <- factor(asd_td_trans$age, levels = c("child", "adolsc", "adult"))
-# ADOS score - some values are NaN
+# ADOS score - some values are NaN. GOTHAM_TOTAL are for child, adolsc. ADOS_TOTAL for adult.
 asd_ados <- read.table('~/Documents/asd_td_adosTotal_forR_empirical.csv', header=T, sep=",")
 asd_ados$age <- factor(asd_ados$age, levels = c("child", "adolsc", "adult"))
+# ADOS Social - ADI_R_SOCIAL_TOTAL_A for child, adolsc and ADOS_SOCIAL for adult
+asd_adosSocial <- read.table('~/Documents/asd_td_adosSocial_forR_empirical.csv', header=T, sep=",")
+asd_adosSocial$age <- factor(asd_adosSocial$age, levels = c("child", "adolsc", "adult"))
+# ADOS RRB - ADI_RRB_TOTAL_C for child, adolsc and ADOS_STEREO_BEHAV for adult
+asd_adosRRB <- read.table('~/Documents/asd_td_adosRRB_forR_empirical.csv', header=T, sep=",")
+asd_adosRRB$age <- factor(asd_adosRRB$age, levels = c("child", "adolsc", "adult"))
+# ADOS COMM - ADI_R_VERBAL_TOTAL_BV for child, adolsc and ADOS_COMM for adult
+asd_adosComm <- read.table('~/Documents/asd_td_adosComm_forR_empirical.csv', header=T, sep=",")
+asd_adosComm$age <- factor(asd_adosComm$age, levels = c("child", "adolsc", "adult"))
 
 ## Section II - filter necessary data for later use.
 # FIQ filtering
@@ -64,7 +73,10 @@ asd_combn_data <- tibble(group = asd_fiqs$group,
 			 indirectMjrTrans = asd_indirect_trans$transFreq,
 			 directMnrTrans = asd_direct_minorTrans$transFreq,
 			 directMjrTrans = asd_direct_majorTrans$transFreq,
-			 ADOS = asd_ados$ADOS  # ADOS score for ASD
+			 ADOS = asd_ados$ADOS,  # ADOS score for ASD
+			 ADOS_SOCIAL = asd_adosSocial$ADOS_SOCIAL, # ADI_R_SOCIAL_TOTAL_A (child, adolsc) | ADOS_SOCIAL (adult)
+			 ADOS_RRB = asd_adosRRB$ADOS_RRB, # ADI_RRB_TOTAL_C (child, adolsc) | ADOS_STEREO_BEHAV (adult)
+			 ADOS_COMM = asd_adosComm$ADOS_COMM, # ADI_R_VERBAL_TOTAL_BV (child, adolsc) | ADOS_COMM (adult)
 			 )
 td_combn_data <- tibble(group = td_fiqs$group,
 			 age = td_fiqs$age,
@@ -145,7 +157,10 @@ keylist <-c("majorStGap",
 	    "td_adolsc_minorSt2",
 	    "td_adolsc_minorSt3",
 	    "td_adult_minorSt2",
-	    "td_adult_minorSt3" 
+	    "td_adult_minorSt3",
+	    "ADOS_SOCIAL",
+	    "ADOS_RRB",
+	    "ADOS_COMM" 
 	    )
 labelsTibble <- tibble(
     key = keylist,
@@ -163,7 +178,10 @@ labelsTibble <- tibble(
 	      "minor states C-D",
 	      "minor states E-F",
 	      "minor states E-F",
-	      "minor states C-D"
+	      "minor states C-D",
+	      "social score (*)",
+	      "stereotypical behavior score (*)",
+	      "communication score (*)"
 	      ))
 percentOnYaxis <-tibble(
         key = keylist,
@@ -181,6 +199,9 @@ percentOnYaxis <-tibble(
 		  FALSE,
 		  FALSE,
 		  FALSE,
+		  FALSE,
+		  FALSE,
+		  FALSE,
 		  FALSE))
 labelsHash = hash(keys=labelsTibble$key, values=labelsTibble$value)
 percentYAxisHash = hash(keys=percentOnYaxis$key, values=percentOnYaxis$value)
@@ -188,7 +209,7 @@ percentYAxisHash = hash(keys=percentOnYaxis$key, values=percentOnYaxis$value)
 ## Major st FC gap.
 # Section VI (a,b) - ASD and TD
 xDataList <- c("majorStGap");
-yDataList <- c("majorStCombnFreq", "duration", "indirectMjrTrans", "directMnrTrans", "FIQ", "ADOS")
+yDataList <- c("majorStCombnFreq", "duration", "indirectMjrTrans", "directMnrTrans", "FIQ")
 N = length(yDataList)
 xLabels <- rep('<within> - <across> FC | major states', N)
 yLabels <- hashMatch(labelsHash, yDataList)
@@ -213,6 +234,45 @@ yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
 #     ggsave(resultFig, width=13, file=sprintf("%s_%s_majorStFCGap_plots.pdf", tolower(diaggroup), ageDiv))
 #  }
 #}
+
+## plot ASD and TD subjects together in a single plot. NOTE: need to create separate function which deals with outlier marking in an aesthetic way.
+adosScoreList = c("ADOS", "ADOS_SOCIAL", "ADOS_COMM", "ADOS_RRB")
+#asd_combnDataWithoutADOSScores = asd_combn_majorSt_gap[setdiff(colnames(asd_combn_majorSt_gap), adosScoreList)]
+#print(colnames(asd_combnDataWithoutADOSScores))
+#print(colnames(td_combn_majorSt_gap))
+#combnData = rbind(asd_combnDataWithoutADOSScores, td_combn_majorSt_gap)
+#for (ageDiv in c("child", "adolsc", "adult")) {
+#     data <- combnData %>% filter(age == ageDiv)
+#     agePretty <- ageDiv
+#     if (ageDiv == "adolsc") {agePretty <- "adolescent"}
+#     plotTitle <- sprintf("ASD & TD %s | functional segregation (major states) vs various metrics", agePretty)
+#     dataInfo <- sprintf('%s %s', diaggroup, ageDiv) # to be pased to the function below
+#     # this function already contains code for plotting outliers   
+#     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle, dataInfo)
+#     # save the figure
+#     ggsave(resultFig, width=13, file=sprintf("asd_td_%s_majorStFCGap_plots.pdf", ageDiv))
+#}
+
+## Special section: plot different ADOS scores vs majorSt FC gap for three age groups
+xDataList <- c("majorStGap");
+yDataList = c("ADOS", "ADOS_SOCIAL", "ADOS_COMM", "ADOS_RRB")
+N <- length(yDataList)
+xLabels <- rep('<within> - <across> FC | major states', N)
+yLabels <- hashMatch(labelsHash, yDataList)
+yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
+combnDataWithADOSScores = asd_combn_majorSt_gap[c("group", "age", "majorStGap", yDataList)]
+for (ageDiv in c("child", "adolsc", "adult")) {
+     data <- combnDataWithADOSScores %>% filter(age == ageDiv)
+     agePretty <- ageDiv
+     if (ageDiv == "adolsc") {agePretty <- "adolescent"}
+     plotTitle <- sprintf("ASD %s | functional segregation (major states) vs behavioral scores", agePretty)
+     dataInfo <- sprintf('ASD %s', ageDiv) # to be pased to the function below
+     # this function already contains code for plotting outliers
+     resultFig <- plotMultipleCorrelation(data, "asd",2,2, xDataList, yDataList, xLabels, yLabels, yAxisPercent, plotTitle, dataInfo)
+     # save the figure
+     ggsave(resultFig, width=8, file=sprintf("asd_ados_%s_majorStFCGap_plots.pdf", ageDiv))
+}
+#
 
 ## Section VI(c) - major st FC gap - calculate correlation for ASD and TD.
 #for (group in c("asd", "td")) {
@@ -259,7 +319,26 @@ yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
 #  }
 #}
 
-# combined appear freq of minor states
+## Special section: plot different ADOS scores vs minorSt FC gap for three age groups
+xDataList <- c("minorStGap");
+yDataList = c("ADOS", "ADOS_SOCIAL", "ADOS_COMM", "ADOS_RRB")
+N <- length(yDataList)
+xLabels <- rep('<within> - <across> FC | minor states', N)
+yLabels <- hashMatch(labelsHash, yDataList)
+yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
+combnDataWithADOSScores = asd_combn_minorSt_gap[c("group", "age", "minorStGap", yDataList)]
+for (ageDiv in c("child", "adolsc", "adult")) {
+     data <- combnDataWithADOSScores %>% filter(age == ageDiv)
+     agePretty <- ageDiv
+     if (ageDiv == "adolsc") {agePretty <- "adolescent"}
+     plotTitle <- sprintf("ASD %s | functional segregation (major states) vs behavioral scores", agePretty)
+     dataInfo <- sprintf('ASD %s', ageDiv) # to be pased to the function below
+     # this function already contains code for plotting outliers
+     resultFig <- plotMultipleCorrelation(data, "asd",2,2, xDataList, yDataList, xLabels, yLabels, yAxisPercent, plotTitle, dataInfo)
+     # save the figure
+     ggsave(resultFig, width=8, file=sprintf("asd_ados_%s_minorStFCGap_plots.pdf", ageDiv))
+}
+
 # Section VII (b). minor st FC gap - calculate correlation for ASD.
 # for (ageDiv in c("child", "adolsc", "adult")) {
 #   data <- asd_combn_minorSt_gap %>% filter(age == ageDiv)
@@ -295,30 +374,30 @@ N = length(yDataList)
 yLabels <- hashMatch(labelsHash, yDataList)
 yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
 #save the multiple figures into one grob (each age group) for sanity
-for (diaggroup in c("TD")) {
-  M = N; #M is for subsetting 
-  for (ageDiv in c("child", "adolsc", "adult")) {
-    modules <- switch(ageDiv,
-	    "child" = c("minorSt2"),
-	    "adolsc" = c("minorSt2", "minorSt3"),
-	    "adult" = c("minorSt2", "minorSt3")
-	    )
-     for (module in modules) {
-  	     minorStKey <- sprintf('%s_%s_%s', tolower(diaggroup), ageDiv, module)
-	     minorStName <- labelsHash[[minorStKey]]
-	     xLabels <- rep(sprintf('<within> - <across> FC | %s', minorStName), N)
-	     combnData <- eval(parse(text=sprintf('%s_%s_combn_%s_Gap', tolower(diaggroup), ageDiv, module)))
-	     data <- combnData %>% filter(group==diaggroup, age == ageDiv)
-	     agePretty <- ageDiv
-	     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
-	     plotTitle <- sprintf("%s %s | FC gap | %s", diaggroup, agePretty, minorStName)
-	     dataInfo <- sprintf('%s %s %s', diaggroup, ageDiv, minorStName)
-	     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle, dataInfo)
-	     # save the figure
-	     ggsave(resultFig, width=13, file=sprintf("%s_%s_%s_FCGap_plots.pdf", tolower(diaggroup), ageDiv, module))
-     }
-  }
-}
+#for (diaggroup in c("TD")) {
+#  M = N; #M is for subsetting 
+#  for (ageDiv in c("child", "adolsc", "adult")) {
+#    modules <- switch(ageDiv,
+#	    "child" = c("minorSt2"),
+#	    "adolsc" = c("minorSt2", "minorSt3"),
+#	    "adult" = c("minorSt2", "minorSt3")
+#	    )
+#     for (module in modules) {
+#  	     minorStKey <- sprintf('%s_%s_%s', tolower(diaggroup), ageDiv, module)
+#	     minorStName <- labelsHash[[minorStKey]]
+#	     xLabels <- rep(sprintf('<within> - <across> FC | %s', minorStName), N)
+#	     combnData <- eval(parse(text=sprintf('%s_%s_combn_%s_Gap', tolower(diaggroup), ageDiv, module)))
+#	     data <- combnData %>% filter(group==diaggroup, age == ageDiv)
+#	     agePretty <- ageDiv
+#	     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
+#	     plotTitle <- sprintf("%s %s | FC gap | %s", diaggroup, agePretty, minorStName)
+#	     dataInfo <- sprintf('%s %s %s', diaggroup, ageDiv, minorStName)
+#	     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle, dataInfo)
+#	     # save the figure
+#	     ggsave(resultFig, width=13, file=sprintf("%s_%s_%s_FCGap_plots.pdf", tolower(diaggroup), ageDiv, module))
+#     }
+#  }
+#}
 
 ## minor st FC gap - calculate correlation for TD.
 # for (ageDiv in c("child", "adolsc", "adult")) {

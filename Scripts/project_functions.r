@@ -165,10 +165,16 @@ hashMatch <- function(hashObj, listObj)
 # finds outliers by calculating the residuals from a linear model fit. Any data point with |residual| > 2*std is tagged as outlier in a table where columns are `indp`, `depnd`, `residuals`, `outlier`
 # indp and depnd are independent and dependent variables respectively
 # reference: https://stats.libretexts.org/Bookshelves/Introductory_Statistics/Book%3A_Introductory_Statistics_(OpenStax)/12%3A_Linear_Regression_and_Correlation/12.07%3A_Outliers
-outlierDetector <- function(data, indp, depnd, printMsg) {
+# groupInfoAvailable carries the truth value if there is a column called `group` in the data provided to this function.
+outlierDetector <- function(data, indp, depnd, printMsg, display=TRUE, groupInfoAvailable=TRUE) {
   filteredData <- eval(parse(text=sprintf("data %%>%% filter(!is.na(%s), !is.na(%s))", indp, depnd)))
   fit <- eval(parse(text=sprintf("lm(%s ~ %s, filteredData)", depnd, indp)))
-  lmTibble <- eval(parse(text=sprintf("tibble(group = filteredData$group, %s = filteredData$%s, %s = filteredData$%s, residuals = residuals(fit))", indp, indp, depnd, depnd))) 
+  if (groupInfoAvailable) {
+    lmTibble <- eval(parse(text=sprintf("tibble(group = filteredData$group, %s = filteredData$%s, %s = filteredData$%s, residuals = residuals(fit))", indp, indp, depnd, depnd))) 
+  } else {
+    lmTibble <- eval(parse(text=sprintf("tibble(%s = filteredData$%s, %s = filteredData$%s, residuals = residuals(fit))", indp, indp, depnd, depnd))) 
+  }
+
   #square the residuals and sum them. 
   SSE <- sum((lmTibble$residuals)*(lmTibble$residuals))
   N <- length(lmTibble$residuals)
@@ -181,10 +187,43 @@ outlierDetector <- function(data, indp, depnd, printMsg) {
    } else { 
      signif_star = ""
    }
-  print(sprintf('%s %s. r = %f, p = %f', signif_star, printMsg, res$estimate, res$p.value))
+  if (display) {
+     print(sprintf('%s %s. r = %f, p = %f', signif_star, printMsg, res$estimate, res$p.value))
+  }
   # implement a vector of outlier boolean values
   lmTibble$outlier <- ifelse(abs(lmTibble$residuals) > 2*std, TRUE, FALSE)
   return(lmTibble)
+}
+
+# print partial correlation results, but with outlier removed for each pair at a time.
+# Using the algorithm given in Wikipedia: https://en.wikipedia.org/wiki/Partial_correlation
+# the algorithm calculates partial cor using the residuals(of X and Y) against the control var (Y).
+removeOutlierAndPrintParCorResults <- function(data, identifier) {
+	metrics <- colnames(data)
+	N <- length(metrics)
+	if (N != 3) {
+          stop(sprintf("this function runs partial correlation for 3 variables. Found %d columns instead in the data provided.", N))
+	}
+	print((sprintf("(%s) partial cor analysis for (%s)", identifier, paste(metrics, collapse=","))))
+	indices = c(1,2,3)
+	for (ind in indices) { # each index will be the variable that acts as a controlling variable for this iteration
+	  varIndices = setdiff(indices, ind) # calculate the difference of sets {1,2,3} - {ind} 
+          metricsOfInterest = metrics[varIndices]
+          metric1 = eval(parse(text=sprintf("data$%s", metricsOfInterest[1])));
+	  metric2 = eval(parse(text=sprintf("data$%s", metricsOfInterest[2])));
+	  control = eval(parse(text=sprintf("data$%s", metrics[ind])));
+	  mm1 = lm(metric1 ~ control); res1 = mm1$residuals;
+	  mm2 = lm(metric2 ~ control); res2 = mm2$residuals;
+          dataRes = tibble("res1" = res1, "res2" = res2) 
+	  resOutliers = outlierDetector(dataRes, "res1", "res2", "", FALSE, FALSE)
+	  outliersRemoved = resOutliers %>% filter(!outlier)
+	  res = cor.test(outliersRemoved$res1, outliersRemoved$res2)
+	  signif_star = ""
+	  if (res$p.value <= 0.05) {
+	     signif_star = "***"
+	  }
+	  print(sprintf("  %s %s vs %s. r = %f, p = %f", signif_star, metricsOfInterest[1], metricsOfInterest[2], res$estimate, res$p.value))
+	}
 }
 
 # plotter  of multiple correlations of a group (ASD/TD) on a single plot
@@ -192,8 +231,7 @@ outlierDetector <- function(data, indp, depnd, printMsg) {
 # the y-axis data can be multiple vals.
 # nRows and nCols are user passed values to arrangeGrob
 # addYAxisPercent contains true, false values for whether '%' symbol is to be added on y-axis.
-# note: please add percentage support if required
-plotMultipleCorrelation <- function(data, group, nRows, nCols, xDataList, yDataList, xLabelList, yLabelList, addYAxisPercent, plotTitle, dataInfo) {
+plotMultipleCorrelation <- function(data, group, nRows, nCols, xDataList, yDataList, xLabelList, yLabelList, addYAxisPercent, addXAxisPercent, plotTitle, dataInfo) {
 
 	Nx <- length(xDataList);
 	Ny <- length(yDataList);
@@ -204,40 +242,72 @@ plotMultipleCorrelation <- function(data, group, nRows, nCols, xDataList, yDataL
 	if (Ny != length(yLabelList)) {
 	  stop("message - the number of y data points and y labels don't match")
 	}
-	tdflag = FALSE; coloradjust <- NULL;
-	if (tolower(group) == "td") { #TD, to use blue color for plotting later.
-	  coloradjust <- scale_color_manual(values=c("TD"="#6290c1"))
-	  tdflag = TRUE;
-	}
+	tdflag = FALSE; asdTdFlag = FALSE; coloradjust <- NULL;
+	if (tolower(group) == "td") { tdflag = TRUE; }
+	else if(tolower(group) == "asd+td") {asdTdFlag = TRUE;}
 	cnt = 0
 	plots <- vector("list", Nx*Ny) # to contain individual plots
 	# make the plots
 	for (xind in c(1:Nx)) {
 	 xval = xDataList[[xind]]; xlabel = xLabelList[[xind]];
-	 for (yind in c(1:Ny)) {
-	 yval = yDataList[[yind]]; ylabel = yLabelList[[yind]];
-	 percentY="FALSE"
-	 if (addYAxisPercent[[yind]] == TRUE) {percentY="TRUE"}
+	 percentX="FALSE"
+	 if (!is.null(addXAxisPercent) && addXAxisPercent[[xind]] == TRUE) {percentX="TRUE"}
 	 
-         # insert outlier detection code here.
-	 corrMessage <- sprintf('(outlier removed - %s) %s vs %s', dataInfo, xval, yval)  #message to be used in correlation
-	 outlierTibble <- outlierDetector(data, xval, yval, corrMessage)
-	 outlierRemoved <- outlierTibble %>% filter(outlier == FALSE)
-	 outliers <- outlierTibble %>% filter(outlier == TRUE)
-	 
-         mapping <- eval(parse(text=sprintf('aes(x=%s, y=%s, color=group)', xval, yval))) 
-	 cnt = cnt + 1;
-	 plots[[cnt]] <- eval(parse(text=sprintf("scatterPlotter(outlierRemoved, mapping, mapping, 'lm', xlabel, ylabel, %s, FALSE, NULL)", percentY)))
-	 # insert outliers on top of the previous plot
-	 plots[[cnt]] <- plots[[cnt]] + geom_point(data=outliers, eval(parse(text=sprintf("aes(x=%s, y=%s)", xval, yval))), shape=7, size=3.5)  #shape 7 is a square with a cross inside
+         for (yind in c(1:Ny)) {
+	  yval = yDataList[[yind]]; ylabel = yLabelList[[yind]];
+	  percentY="FALSE"
+	  if (!is.null(addYAxisPercent) && addYAxisPercent[[yind]] == TRUE) {percentY="TRUE"}
+	  
+	  if (!asdTdFlag) {
+		 # insert outlier detection code here.
+		 corrMessage <- sprintf('(outlier removed - %s) %s vs %s', dataInfo, xval, yval)  #message to be used in outlierDetectorCode
+		 outlierTibble <- outlierDetector(data, xval, yval, corrMessage)
+		 outlierRemoved <- outlierTibble %>% filter(outlier == FALSE)
+		 outliers <- outlierTibble %>% filter(outlier == TRUE)
+		 
+		 ##**** the main plot
+		 mapping <- eval(parse(text=sprintf('aes(x=%s, y=%s, color=group)', xval, yval))) 
+		 cnt = cnt + 1;
+		 plots[[cnt]] <- eval(parse(text=sprintf("scatterPlotter(outlierRemoved, mapping, mapping, 'lm', xlabel, ylabel, %s, %s, NULL)", percentY, percentX)))
+		 
+		 ##*** insert outliers on top of the previous plot
+		 outlierColor = "#8b0000ff"
+		 if (tdflag) {
+		    outlierColor = "#6290c1"
+		 }
+		 plots[[cnt]] <- plots[[cnt]] + geom_point(data=outliers, eval(parse(text=sprintf("aes(x=%s, y=%s)", xval, yval))), shape=7, size=3.2, color=outlierColor)  #shape 7 is a square with a cross inside
 
-	 if (tdflag) { #set the color
-	  coloradjust <- scale_color_manual(values=c("TD"="#6290c1"))
-	  plots[[cnt]] <- plots[[cnt]] + coloradjust
-	 }
-	 # call ggsave to test - It works. 
-	 plotname <- sprintf('%s_vs_%s', xval, yval)
-	 #ggsave(plots[[cnt]], width=7, file=sprintf("%s.pdf", plotname))
+		 #coloradjust <- scale_color_manual(values=c("TD"="#6290c1", "ASD"="#8b0000ff"))
+		 #plots[[cnt]] <- plots[[cnt]] + coloradjust
+	  }
+	  else { #handle both ASD and TD in same plots.
+	        # start with ASD and its outliers
+		asdData = data %>% filter(group == 'ASD')
+	        corrMessage <- sprintf('(outlier removed - ASD %s) %s vs %s', dataInfo, xval, yval)  #message to be used in outlierDetectorCode
+		asdOutlierTibble <- outlierDetector(asdData, xval, yval, corrMessage)
+		# start with TD and its outliers
+		tdData = data %>% filter(group == 'TD')
+	        corrMessage <- sprintf('(outlier removed - TD %s) %s vs %s', dataInfo, xval, yval)  #message to be used in outlierDetectorCode
+		tdOutlierTibble <- outlierDetector(tdData, xval, yval, corrMessage)
+                # combine the outlier tibbles
+	        asd_td_outlierTibble = rbind(asdOutlierTibble, tdOutlierTibble)
+	        asd_td_outliersRemoved = asd_td_outlierTibble %>% filter(!outlier)	
+	        asd_td_outliers = asd_td_outlierTibble %>% filter(outlier == TRUE)	
+		
+		# start the plotting code
+		mapping <- eval(parse(text=sprintf('aes(x=%s, y=%s, color=group)', xval, yval))) 
+                cnt = cnt + 1;
+                plots[[cnt]] <- eval(parse(text=sprintf("scatterPlotter(asd_td_outliersRemoved, mapping, mapping, 'lm', xlabel, ylabel, %s, %s, NULL)", percentY, percentX)))
+		# add outliers
+		asd_outliers = asd_td_outliers %>% filter(group == "ASD")
+		td_outliers = asd_td_outliers %>% filter(group == "TD")
+
+		plots[[cnt]] <- plots[[cnt]] + geom_point(data=td_outliers, eval(parse(text=sprintf("aes(x=%s, y=%s)", xval, yval))), shape=7, size=3.2, color="#6290c1") + geom_point(data=asd_outliers, eval(parse(text=sprintf("aes(x=%s, y=%s)", xval, yval))), shape=7, size=3.2, color="#8b0000ff")  #shape 7 is a square with a cross inside
+	  
+	  }
+	  coloradjust <- scale_color_manual(values=c("TD"="#6290c1", "ASD"="#f8766dff")) # blue for TD, red for ASD
+	  plots[[cnt]] <- plots[[cnt]] + coloradjust #plotname <- sprintf('%s_vs_%s', xval, yval)
+	  #ggsave(plots[[cnt]], width=7, file=sprintf("%s.pdf", plotname))
 	 }
 	}
 	# create arrangeGrob object
