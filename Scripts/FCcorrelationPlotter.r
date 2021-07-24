@@ -235,25 +235,32 @@ yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
 #  }
 #}
 
-## plot ASD and TD subjects together in a single plot. NOTE: need to create separate function which deals with outlier marking in an aesthetic way.
+## NOTE: plot ASD and TD subjects together in a single plot.
+xDataList <- c("majorStGap");
+yDataList <- c("majorStCombnFreq", "duration", "FIQ", "directMnrTrans", "indirectMjrTrans")
+N = length(yDataList)
+xLabels <- rep('<within> - <across> FC | major states', N)
+yLabels <- hashMatch(labelsHash, yDataList)
+yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
+xAxisPercent <- rep(FALSE, N)
 adosScoreList = c("ADOS", "ADOS_SOCIAL", "ADOS_COMM", "ADOS_RRB")
-#asd_combnDataWithoutADOSScores = asd_combn_majorSt_gap[setdiff(colnames(asd_combn_majorSt_gap), adosScoreList)]
+asd_combnDataWithoutADOSScores = asd_combn_majorSt_gap[setdiff(colnames(asd_combn_majorSt_gap), adosScoreList)]
 #print(colnames(asd_combnDataWithoutADOSScores))
 #print(colnames(td_combn_majorSt_gap))
-#combnData = rbind(asd_combnDataWithoutADOSScores, td_combn_majorSt_gap)
+combnData = rbind(asd_combnDataWithoutADOSScores, td_combn_majorSt_gap)
 #for (ageDiv in c("child", "adolsc", "adult")) {
 #     data <- combnData %>% filter(age == ageDiv)
 #     agePretty <- ageDiv
 #     if (ageDiv == "adolsc") {agePretty <- "adolescent"}
 #     plotTitle <- sprintf("ASD & TD %s | functional segregation (major states) vs various metrics", agePretty)
-#     dataInfo <- sprintf('%s %s', diaggroup, ageDiv) # to be pased to the function below
+#     dataInfo <- ageDiv # to be pased to the function below
 #     # this function already contains code for plotting outliers   
-#     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle, dataInfo)
+#     resultFig <- plotMultipleCorrelation(data, "ASD+TD",2,3, xDataList, yDataList, xLabels, yLabels, yAxisPercent, xAxisPercent, plotTitle, dataInfo)
 #     # save the figure
 #     ggsave(resultFig, width=13, file=sprintf("asd_td_%s_majorStFCGap_plots.pdf", ageDiv))
 #}
 
-## Special section: plot different ADOS scores vs majorSt FC gap for three age groups
+# Special section: plot different ADOS scores vs majorSt FC gap for three age groups
 xDataList <- c("majorStGap");
 yDataList = c("ADOS", "ADOS_SOCIAL", "ADOS_COMM", "ADOS_RRB")
 N <- length(yDataList)
@@ -261,24 +268,26 @@ xLabels <- rep('<within> - <across> FC | major states', N)
 yLabels <- hashMatch(labelsHash, yDataList)
 yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
 combnDataWithADOSScores = asd_combn_majorSt_gap[c("group", "age", "majorStGap", yDataList)]
-for (ageDiv in c("child", "adolsc", "adult")) {
-     data <- combnDataWithADOSScores %>% filter(age == ageDiv)
-     agePretty <- ageDiv
-     if (ageDiv == "adolsc") {agePretty <- "adolescent"}
-     plotTitle <- sprintf("ASD %s | functional segregation (major states) vs behavioral scores", agePretty)
-     dataInfo <- sprintf('ASD %s', ageDiv) # to be pased to the function below
-     # this function already contains code for plotting outliers
-     resultFig <- plotMultipleCorrelation(data, "asd",2,2, xDataList, yDataList, xLabels, yLabels, yAxisPercent, plotTitle, dataInfo)
-     # save the figure
-     ggsave(resultFig, width=8, file=sprintf("asd_ados_%s_majorStFCGap_plots.pdf", ageDiv))
-}
+#for (ageDiv in c("child", "adolsc", "adult")) {
+#     data <- combnDataWithADOSScores %>% filter(age == ageDiv)
+#     agePretty <- ageDiv
+#     if (ageDiv == "adolsc") {agePretty <- "adolescent"}
+#     plotTitle <- sprintf("ASD %s | functional segregation (major states) vs behavioral scores", agePretty)
+#     dataInfo <- sprintf('ASD %s', ageDiv) # to be pased to the function below
+#     # this function already contains code for plotting outliers
+#     resultFig <- plotMultipleCorrelation(data, "asd",2,2, xDataList, yDataList, xLabels, yLabels, yAxisPercent, plotTitle, dataInfo)
+#     # save the figure
+#     ggsave(resultFig, width=8, file=sprintf("asd_ados_%s_majorStFCGap_plots.pdf", ageDiv))
+#}
 #
 
 ## Section VI(c) - major st FC gap - calculate correlation for ASD and TD.
 #for (group in c("asd", "td")) {
+#for (group in c("asd")) {
 #  for (ageDiv in c("child", "adolsc", "adult")) {
 #   data <- eval(parse(text=sprintf('%s_combn_majorSt_gap', group))) %>% filter(age == ageDiv)
-#   for (interest in c("ADOS", "majorStCombnFreq", "duration", "FIQ", "indirectMjrTrans", "directMnrTrans")) {
+# for (interest in c("ADOS", "ADOS_SOCIAL", "ADOS_COMM", "ADOS_RRB")) {
+# #for (interest in c("ADOS", "majorStCombnFreq", "duration", "FIQ", "indirectMjrTrans", "directMnrTrans")) {
 #         if (group == "td" && interest=="ADOS") { # not relevant, skip
 #		 next
 #	 }
@@ -327,22 +336,23 @@ xLabels <- rep('<within> - <across> FC | minor states', N)
 yLabels <- hashMatch(labelsHash, yDataList)
 yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
 combnDataWithADOSScores = asd_combn_minorSt_gap[c("group", "age", "minorStGap", yDataList)]
-for (ageDiv in c("child", "adolsc", "adult")) {
-     data <- combnDataWithADOSScores %>% filter(age == ageDiv)
-     agePretty <- ageDiv
-     if (ageDiv == "adolsc") {agePretty <- "adolescent"}
-     plotTitle <- sprintf("ASD %s | functional segregation (major states) vs behavioral scores", agePretty)
-     dataInfo <- sprintf('ASD %s', ageDiv) # to be pased to the function below
-     # this function already contains code for plotting outliers
-     resultFig <- plotMultipleCorrelation(data, "asd",2,2, xDataList, yDataList, xLabels, yLabels, yAxisPercent, plotTitle, dataInfo)
-     # save the figure
-     ggsave(resultFig, width=8, file=sprintf("asd_ados_%s_minorStFCGap_plots.pdf", ageDiv))
-}
+#for (ageDiv in c("child", "adolsc", "adult")) {
+#     data <- combnDataWithADOSScores %>% filter(age == ageDiv)
+#     agePretty <- ageDiv
+#     if (ageDiv == "adolsc") {agePretty <- "adolescent"}
+#     plotTitle <- sprintf("ASD %s | functional segregation (major states) vs behavioral scores", agePretty)
+#     dataInfo <- sprintf('ASD %s', ageDiv) # to be pased to the function below
+#     # this function already contains code for plotting outliers
+#     resultFig <- plotMultipleCorrelation(data, "asd",2,2, xDataList, yDataList, xLabels, yLabels, yAxisPercent, plotTitle, dataInfo)
+#     # save the figure
+#     ggsave(resultFig, width=8, file=sprintf("asd_ados_%s_minorStFCGap_plots.pdf", ageDiv))
+#}
 
 # Section VII (b). minor st FC gap - calculate correlation for ASD.
 # for (ageDiv in c("child", "adolsc", "adult")) {
 #   data <- asd_combn_minorSt_gap %>% filter(age == ageDiv)
-#   for (interest in c("ADOS", "duration", "minorStCombnFreq", "indirectMjrTrans", "directMnrTrans", "FIQ")) {
+#   for (interest in c("ADOS", "ADOS_SOCIAL", "ADOS_COMM", "ADOS_RRB")) {
+# #  for (interest in c("ADOS", "duration", "minorStCombnFreq", "indirectMjrTrans", "directMnrTrans", "FIQ")) {
 #         dataOfInterest <- eval(parse(text=sprintf("data$%s", interest)))
 #	 res <- cor.test(data$minorStGap, dataOfInterest)
 #	 if (res$p.value <= 0.05) {
@@ -369,35 +379,47 @@ for (ageDiv in c("child", "adolsc", "adult")) {
 # (b) adolsc - minorSt_2-5 (td_adolsc_minorSt2_Gap) and minorSt_1-6 (td_adolsc_minorSt3_Gap) are to be considered.
 # (c) adult - minorSt_2-5 (td_adult_minorSt2_Gap) and minorSt_1-6 (td_adult_minorSt3_Gap) are to be considered. 
 xDataList <- c("minorStGap");
-yDataList <- c("minorStCombnFreq", "duration", "indirectMjrTrans", "directMnrTrans", "FIQ")
+yDataList <- c("minorStCombnFreq", "duration", "FIQ", "directMnrTrans", "indirectMjrTrans")
 N = length(yDataList)
 yLabels <- hashMatch(labelsHash, yDataList)
 yAxisPercent <- hashMatch(percentYAxisHash, yDataList)
-#save the multiple figures into one grob (each age group) for sanity
-#for (diaggroup in c("TD")) {
-#  M = N; #M is for subsetting 
-#  for (ageDiv in c("child", "adolsc", "adult")) {
-#    modules <- switch(ageDiv,
-#	    "child" = c("minorSt2"),
-#	    "adolsc" = c("minorSt2", "minorSt3"),
-#	    "adult" = c("minorSt2", "minorSt3")
-#	    )
-#     for (module in modules) {
-#  	     minorStKey <- sprintf('%s_%s_%s', tolower(diaggroup), ageDiv, module)
-#	     minorStName <- labelsHash[[minorStKey]]
-#	     xLabels <- rep(sprintf('<within> - <across> FC | %s', minorStName), N)
-#	     combnData <- eval(parse(text=sprintf('%s_%s_combn_%s_Gap', tolower(diaggroup), ageDiv, module)))
-#	     data <- combnData %>% filter(group==diaggroup, age == ageDiv)
-#	     agePretty <- ageDiv
-#	     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
-#	     plotTitle <- sprintf("%s %s | FC gap | %s", diaggroup, agePretty, minorStName)
-#	     dataInfo <- sprintf('%s %s %s', diaggroup, ageDiv, minorStName)
-#	     resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle, dataInfo)
-#	     # save the figure
-#	     ggsave(resultFig, width=13, file=sprintf("%s_%s_%s_FCGap_plots.pdf", tolower(diaggroup), ageDiv, module))
-#     }
-#  }
-#}
+xAxisPercent <- rep(FALSE, N)
+adosScoreList = c("ADOS", "ADOS_SOCIAL", "ADOS_COMM", "ADOS_RRB")
+asdDataWithoutADOS = asd_combn_minorSt_gap[setdiff(colnames(asd_combn_minorSt_gap), adosScoreList)]
+
+#NOTE: save multiple groups, save the multiple figures into one grob (each age group) for sanity
+for (diaggroup in c("TD")) {
+  M = N; #M is for subsetting 
+  for (ageDiv in c("child", "adolsc", "adult")) {
+    modules <- switch(ageDiv,
+	    "child" = c("minorSt2"),
+	    "adolsc" = c("minorSt2", "minorSt3"),
+	    "adult" = c("minorSt2", "minorSt3")
+	    )
+     for (module in modules) {
+  	     minorStKey <- sprintf('%s_%s_%s', tolower(diaggroup), ageDiv, module)
+	     minorStName <- labelsHash[[minorStKey]]
+	     #xLabels <- rep(sprintf('<within> - <across> FC | %s', minorStName), N)
+	     xLabels <- rep(sprintf('<within> - <across> FC | minor states', minorStName), N)
+   ## NOTE: join different diagnostic groups together 
+	     #combnData <- eval(parse(text=sprintf('%s_%s_combn_%s_Gap', tolower(diaggroup), ageDiv, module)))
+	     combnData <- eval(parse(text=sprintf('rbind(asdDataWithoutADOS, %s_%s_combn_%s_Gap)', tolower(diaggroup), ageDiv, module)))
+	     #data <- combnData %>% filter(group==diaggroup, age == ageDiv)
+	     data <- combnData %>% filter(age == ageDiv)
+	     agePretty <- ageDiv
+	     if (ageDiv == "adolsc") { agePretty <- "adolescent"}
+	     #plotTitle <- sprintf("%s %s | FC gap | %s", diaggroup, agePretty, minorStName)
+	     plotTitle <- sprintf("ASD, %s %s | functional segregation (TD %s) vs various metrics", diaggroup, agePretty, minorStName)
+	     #dataInfo <- sprintf('%s %s %s', diaggroup, ageDiv, minorStName)
+	     dataInfo <- ageDiv
+	     #resultFig <- plotMultipleCorrelation(data, diaggroup,2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], plotTitle, dataInfo)
+	     resultFig <- plotMultipleCorrelation(data,"ASD+TD",2,3, xDataList, yDataList[1:M], xLabels[1:M], yLabels[1:M], yAxisPercent[1:M], xAxisPercent, plotTitle, dataInfo)
+	     # save the figure
+	     #ggsave(resultFig, width=13, file=sprintf("%s_%s_%s_FCGap_plots.pdf", tolower(diaggroup), ageDiv, module))
+	     ggsave(resultFig, width=13, file=sprintf("asd_%s_%s_%s_FCGap_plots.pdf", tolower(diaggroup), module, ageDiv))
+     }
+  }
+}
 
 ## minor st FC gap - calculate correlation for TD.
 # for (ageDiv in c("child", "adolsc", "adult")) {

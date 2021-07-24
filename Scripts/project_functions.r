@@ -118,7 +118,11 @@ anovaResultsPostTukeyHSD <- function(formula, inputData, contrastList, identifie
 
   for(contra in contrastList) {
   eval(parse(text=sprintf('res <- tidy.tukey.aov.result %%>%% filter(contrast == \"%s\")', contra)))
-  cat(sprintf("%s. contrast(%s) : %f (p=%f).\n", identifierText, contra, res$estimate, res$adj.p.value))
+   signif_star = ""
+   if (res$adj.p.value <= 0.05) {
+   signif_star = "***"
+   }
+  cat(sprintf("%s %s. contrast(%s) : %f (p=%f).\n", signif_star, identifierText, contra, res$estimate, res$adj.p.value))
   }
 
 }

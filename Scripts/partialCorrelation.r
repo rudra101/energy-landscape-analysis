@@ -96,36 +96,34 @@ for (prefix in c("asd", "td")) {
    metricList <- c("duration", "dirMajorTransFreq", "indirTransFreq", "dirMinorTransFreq", "minorStCombnFreq")
    adosScoreList <- c("ADOS", "ADOS_SOCIAL", "ADOS_COMM", "ADOS_RRB")
    N <- length(metricList)
-   for (adosScore in adosScoreList) {
-   cnt = 1;
-   for (ii in c(1:(N-1))) {
-     for (jj in c((ii+1):N)) {
-       if (ii == 2 && jj == 4) {
-        # this combination is breaking pcor code to setup row and col names to the names of datafield. Don't have time to deeply debug.
-        #printParCorResults(data[c("ADOS", metricList[ii], metricList[jj])], identifier) # subset data and call the functions
-        next;
-       } else {
-        #next;
-       }
-       #print(sprintf("ii = %d, jj = %d", ii, jj))
-       removeOutlierAndPrintParCorResults(data[c(adosScore, metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
-       #removeOutlierAndPrintParCorResults(data[c("ADOS_SOCIAL", metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
-       #removeOutlierAndPrintParCorResults(data[c("ADOS_COMM", metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
-       #removeOutlierAndPrintParCorResults(data[c("ADOS_RRB", metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
-       #printParCorResults(data[c("ADOS", metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
-       cnt = cnt + 1;
-     }
-   }
-   cat("\n")
-   }
+  # for (adosScore in adosScoreList) {
+  # cnt = 1;
+  # for (ii in c(1:(N-1))) {
+  #   for (jj in c((ii+1):N)) {
+  #     if (ii == 2 && jj == 4) {
+  #      # this combination is breaking pcor code to setup row and col names to the names of datafield. Don't have time to deeply debug.
+  #      #printParCorResults(data[c("ADOS", metricList[ii], metricList[jj])], identifier) # subset data and call the functions
+  #      next;
+  #     } else {
+  #      #next;
+  #     }
+  #     #print(sprintf("ii = %d, jj = %d", ii, jj))
+  #     removeOutlierAndPrintParCorResults(data[c(adosScore, metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
+  #     #removeOutlierAndPrintParCorResults(data[c("ADOS_SOCIAL", metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
+  #     #removeOutlierAndPrintParCorResults(data[c("ADOS_COMM", metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
+  #     #removeOutlierAndPrintParCorResults(data[c("ADOS_RRB", metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
+  #     #printParCorResults(data[c("ADOS", metricList[ii], metricList[jj])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
+  #     cnt = cnt + 1;
+  #   }
+  # }
+  # cat("\n")
+  # }
   }
- 
-   #metricList <- c("duration", "dirMajorTransFreq", "indirTransFreq", "dirMinorTransFreq", "minorStCombnFreq")
-   # cnt = 1;
+   cnt = 1;
+   metricList <- c("duration", "dirMajorTransFreq", "indirTransFreq", "dirMinorTransFreq", "minorStCombnFreq")
    # for (ii in c(1:(N-1))) {
    #  for (jj in c((ii+1):N)) {
    #    if (ii == 2 && jj == 4) {
-   #    # #printParCorResults(data[c("ADOS", metricList[ii], metricList[jj])], identifier) # subset data and call the functions
    #     next;
    #    } #else {
    #    # #next;
@@ -144,8 +142,17 @@ for (prefix in c("asd", "td")) {
  # printParCorResults(data[c("indirTransFreq", "FIQ", "minorStCombnFreq")], identifier) # subset data and call the functions
  #  
  # # partial correlation - (d) . Refer comments above to understand indices.
- #removeOutlierAndPrintParCorResults(data[c("duration", "indirTransFreq", "minorStCombnFreq")], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
+  for (ii in c(1:(N-2))) {
+   for (jj in c((ii+1):(N-1))) {
+    for (kk in c((jj+1):(N))) {
+       removeOutlierAndPrintParCorResults(data[c(metricList[ii], metricList[jj], metricList[kk])], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
+      cnt = cnt + 1;
+    }
+   }
+  }
+  cat("\n")
+ # removeOutlierAndPrintParCorResults(data[c("duration", "indirTransFreq", "minorStCombnFreq")], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
  #printParCorResults(data[c("duration", "indirTransFreq", "minorStCombnFreq")], sprintf('%d. %s', cnt, identifier)) # subset data and call the functions
  }
-}
+ }
 
