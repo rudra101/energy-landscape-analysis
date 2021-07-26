@@ -7,7 +7,7 @@ function [abs_M, Q, Xsg, Xuni, avg_spin, avg_corr, simulatedStates] = monteCarlo
 % transient is the number of initial steps to discard from each run.
 % N is the the number of samples to consider for average
 % printMsg is for toggling printing messages within this function.
-% returns trial_spin_avg = 1Xnspins vector containing the avg state of individual spins.
+% returns trial_spin_avg = 1Xn spins vector containing the avg state of individual spins.
 % returns trial_corr_avg = nXn spins vector containing the averaged correlation vals. 
 % abs_M is the abs(magnetization) = abs(∑(<Si>/N)).
 % Q is the order parameter, ∑sqr(<Si>)/N.
@@ -19,13 +19,14 @@ if nargin < 7;
 	printMsg = false;
 end
 nodeNumber = length(h);
+E = mfunc_Energy(h, J);
 spinConfig = zeros(1, nodeNumber);
 possibleStates = [-1 1]; %states for spin up and down.
 avg_spin = zeros(1, nodeNumber);
 avg_corr = zeros(nodeNumber);
 abs_M = 0; Q = 0; Xsg = 0 ; Xuni = 0;
-simulatedStates = [];
-%simulatedStates = zeros(nodeNumber, N*initCondsNum, 'int8'); %contains the simulated runs. size - nodeNumber x (N*initCondsNum). 'int8' to reduce memory. In the same format as binarizedData in main().
+%simulatedStates = [];
+simulatedStates = zeros(nodeNumber, N*initCondsNum, 'int8'); %contains the simulated runs. size - nodeNumber x (N*initCondsNum). 'int8' to reduce memory. In the same format as binarizedData in main().
 indexForSimState = 1; %index which will be used to update `simulatedStates` above.
 for simNum = 1:initCondsNum
 	magnetizationSingleRun = zeros(1, nodeNumber); %will contain ensemble average of spin states under one trial of Monte-Carlo simulation. For abs_M, Q, Xsg, Xuni
@@ -44,19 +45,12 @@ for simNum = 1:initCondsNum
 	if run > transient; %could be used for analyses
 	magnetizationSingleRun = magnetizationSingleRun + spinConfig;
 	corrMatrixSingleRun = corrMatrixSingleRun + computeCorrlMatrix(spinConfig);
-	%simulatedStates(:,indexForSimState) = spinConfig'; %store the simulated state
+	simulatedStates(:,indexForSimState) = spinConfig'; %store the simulated state
 	indexForSimState = indexForSimState + 1;
 	end
 	%%select a random spin to flip
-	spinToFlip = randi([1 nodeNumber]);
-	flippedState = spinConfig; flippedState(spinToFlip) = spinConfig(spinToFlip)*-1;
-	%calculate the energy diff. Again, the steps below can be made parallel.
-	originalEnergy = calc_energy(spinConfig, h, J);
-	flippedEnergy = calc_energy(flippedState, h, J);
-	probability = min(1, exp(originalEnergy - flippedEnergy));
-	if rand <= probability %accept the flipped state
-		spinConfig = flippedState;
-	end
+	neighbour = findNextTransState(spinConfig, E);
+	spinConfig = neighbour;
 	end
 	%all the below assignments can be made parallel
 	%avg_spin = avg_spin + (magnetizationSingleRun ./ N);
@@ -64,12 +58,59 @@ for simNum = 1:initCondsNum
 	abs_M = abs_M + abs(mean(magnetizationSingleRun/N));
 	Q = Q + mean((magnetizationSingleRun/N).^2); 
 	[Xsg_run, Xuni_run] = calculateSusceptibility(beta, corrMatrixSingleRun/N, magnetizationSingleRun/N); %calculate ensemble average and then compute susceptibility.
-	Xsg = Xsg + Xsg_run; Xuni = Xuni + Xuni_run;
+	%Xsg = Xsg + Xsg_run; Xuni = Xuni + Xuni_run;
 end
 	%trial_spin_avg = spin_avg / (N * initCondsNum);
 	%trial_corr_avg = corr_avg / (N * initCondsNum);
 	abs_M = abs_M / initCondsNum; Q = Q / initCondsNum;
 	Xsg = Xsg / initCondsNum; Xuni = Xuni / initCondsNum;
 	%avg_spin = avg_spin/initCondsNum; avg_corr = avg_corr/initCondsNum;
+end
+
+%uses randomsample with bias as exp(E(target) - E(origin)) to achieve MCMC.
+function target = findNextTransState(spinConfig, E)
+	N = length(spinConfig);
+	curr_state = mfunc_GetStateNumber(spinConfig');
+	indx = randi(N);
+	flippedState = spinConfig;
+	flippedState(indx) = flippedState(indx) * -1;
+	target = mfunc_GetStateNumber(flippedState');
+	prob = min(1, exp(E(curr_state) - E(target)));
+	prob_reject = 1 - prob;
+	toss = randsample([0 indx], 1, true, [prob_reject prob]);
+	target = spinConfig;
+	if toss ~= 0; target(indx) = target(indx) * -1;
+	end	
+	
+	%prob_bias = []; states = [];
+	%prob_one = 0; %flag to know if state transition P(i->j) = 1.
+%	for ii = 1:N;
+%	flippedState = spinConfig;
+%	flippedState(ii) = flippedState(ii) * -1;
+%	target = mfunc_GetStateNumber(flippedState');
+%	states = [states target];
+%	prob = min(1, exp(E(curr_state) - E(target)));
+%	prob_bias = [prob_bias prob];
+%	%if prob == 1; prob_one = 1;
+%	%end
+%	end
+% [Algo #1] find probability of no transition and add it as another state.
+% eqn (1) and (2) of Gubernatis, 2005, Physics of Plasmas.
+% on a side note, the paper also explains a sufficient condition that ensures traversal of every possible state.
+	%prob_noTrans = max(0, 1 - sum(prob_bias));
+	%prob_bias = [prob_noTrans prob_bias];
+	%if prob_one; %set everything else to zero; could be invalid.
+	%	for ii = 1:N+1;
+	%	 if prob_bias(ii) ~= 1; prob_bias(ii) = 0;
+	%	 end
+	%	end
+	%end
+	%indx = randsample(0:N, 1, true, prob_bias);
+	%indx = randsample(1:N, 1, true, prob_bias);
+% [Algo #2] (different than algo #1) implementing Metropolis algorithm (symmetric proposal distribution) from Wikipedia: https://en.wikipedia.org/wiki/Metropolis%E2%80%93Hastings_algorithm
+	%alpha = E(states(indx)) / E(curr_state);
+	%target = spinConfig;
+	%if rand <= alpha; target(indx) = target(indx) * -1;
+	%end
 end
 
