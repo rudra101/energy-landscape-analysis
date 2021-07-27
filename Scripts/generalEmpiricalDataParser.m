@@ -16,6 +16,8 @@ function result = generalEmpiricalDataParser(age, group, data, typeOfTask)
 	 FCMats = {};
         case "NetModsCalc"
 	 subjNetMods = {}; % to contain python dicts in subsequent code.	
+        case "freqCalc_Combn"
+	 freqsCombn = [];
         otherwise
 	 error(sprintf('typeOfTask %s is not recognised', typeOfTask));
       end
@@ -39,6 +41,11 @@ function result = generalEmpiricalDataParser(age, group, data, typeOfTask)
 	binarizedDataFilepath = sprintf('%s%s%s/%s/%dmm_ROI_radius/binarizedData/%s.dat', exactEzakiPathPrefix, folderPrefix, folderName, fMRItimeseriesfolder, sphereRadius, filename);
 	binarizedData = importdata(binarizedDataFilepath);
 	switch typeOfTask
+	case "freqCalc_Combn"
+	 freqMajorSt = getFreqOfStates(binarizedData, LocalMinIndx, BasinGrph, MEMData.majorstateIndices); 
+	 freqMinorSt = 1 - sum(freqMajorSt);
+	 freqMjrStCombn = freqMajorSt(1) + freqMajorSt(2);
+	 freqsCombn = [freqsCombn; freqMjrStCombn freqMinorSt];	
 	case "freqCalc"
 	 freqMajorSt = getFreqOfStates(binarizedData, LocalMinIndx, BasinGrph, MEMData.majorstateIndices); 
 	 freqMinorSt = 1 - sum(freqMajorSt);
@@ -60,12 +67,13 @@ function result = generalEmpiricalDataParser(age, group, data, typeOfTask)
         end
         end
       end
-      if typeOfTask == "freqCalc"; result = freqs;
+      if typeOfTask == "freqCalc_Combn"; result = freqsCombn;
+      elseif typeOfTask == "freqCalc"; result = freqs;
       elseif typeOfTask == "transCalc"; result = trans;
       elseif typeOfTask == "durationCalc"; result = durations;
       elseif typeOfTask == "FCcalc"; result = FCMats;
       elseif typeOfTask == "NetModsCalc"; result = subjNetMods;
-      else error(sprintf("No result set for task %s", taskType));
+      else error(sprintf("No result set for task %s", typeofTask));
       end 
       close all;
 end
